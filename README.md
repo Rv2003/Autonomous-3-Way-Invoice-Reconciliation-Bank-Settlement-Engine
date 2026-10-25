@@ -5,6 +5,6 @@ Goods Received Notes, supplier invoices, and bank payment records.
 
 ## Technology Stack
 - Frontend: React, TypeScript
-- Backend: Java, Spring Boot
+- Backend: Go
 - Database: PostgreSQL
 - Future AI Service: Python, FastAPI
