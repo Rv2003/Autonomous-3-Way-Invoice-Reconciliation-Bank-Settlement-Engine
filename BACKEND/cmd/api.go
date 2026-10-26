@@ -41,7 +41,8 @@ func (app *application) mount() http.Handler {
     w.Write([]byte("hi"))
   })
 	//http.ListenAndServe(":3333", r)
-pdfHandler:=pdf.NewHandler(nil)
+pdfService:=pdf.NewService()
+pdfHandler:=pdf.NewHandler(pdfService)
 r.Get("/pdf",pdfHandler.ListPdf)
 	
 return r
