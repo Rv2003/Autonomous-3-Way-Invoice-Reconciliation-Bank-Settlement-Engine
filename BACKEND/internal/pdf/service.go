@@ -1,20 +1,23 @@
 package pdf
 
-import "context"
+import (
+	"context"
+
+	repo "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/sqlc"
+)
 
 type Service interface {
-	ListPdf(ctx context.Context)(error)
+	ListPdf(ctx context.Context) ([]repo.ListPdfRow, error)
 }
 
-
-type svc struct{
-
+type svc struct {
+	repo repo.Querier
 }
 
-func NewService() Service{
-	return &svc{}
+func NewService(repo repo.Querier) Service {
+	return &svc{repo: repo}
 }
 
-func(s *svc) ListPdf(ctx context.Context) error{
-	return nil
+func (s *svc) ListPdf(ctx context.Context) ([]repo.ListPdfRow, error) {
+	return s.repo.ListPdf(ctx)
 }

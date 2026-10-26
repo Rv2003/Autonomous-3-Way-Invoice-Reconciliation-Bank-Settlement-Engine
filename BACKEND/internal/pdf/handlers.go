@@ -18,14 +18,12 @@ func NewHandler(service Service) *handler {
 }
 
 func (h *handler) ListPdf(w http.ResponseWriter,r *http.Request) {
-  err:=h.service.ListPdf(r.Context())
+  pdf,err:=h.service.ListPdf(r.Context())
   if err !=nil{
 	log.Println(err)
 	http.Error(w,err.Error(),http.StatusInternalServerError)
 	return
-  }
-pdf:=[]string{"hello","world"}
-
+    }
 json.Write(w,http.StatusOK,pdf)
 
 }
