@@ -47,7 +47,10 @@ func (app *application) mount() http.Handler {
 	pdfService := pdf.NewService(repo.New(app.db))
 	pdfHandler := pdf.NewHandler(pdfService)
 	r.Get("/pdf", pdfHandler.ListPdf)
-    r.Get("/pdf/{id}",)
+    r.Post("/pdf/submit",pdfHandler.CreatePdf)
+   
+
+
 	return r
 }
 

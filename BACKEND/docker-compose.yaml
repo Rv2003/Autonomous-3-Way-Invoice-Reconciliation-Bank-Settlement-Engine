@@ -5,13 +5,22 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    volumes:
+      - pdf_uploads:/app/uploads
     environment:
       GOOSE_DBSTRING: host=db user=invoice_app password=${POSTGRES_PASSWORD:-password123} dbname=invoice_reconciliation sslmode=disable
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
-
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          ignore:
+            - .git/
+            - uploads/
+            - "*.md"
   db:
     image: postgres:17-alpine
     environment:
@@ -32,3 +41,6 @@ services:
 
 volumes:
   postgres_data:
+  pdf_uploads:
+
+  

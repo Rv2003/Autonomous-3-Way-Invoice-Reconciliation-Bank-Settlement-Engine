@@ -8,6 +8,7 @@ import (
 
 type Service interface {
 	ListPdf(ctx context.Context) ([]repo.ListPdfRow, error)
+	CreatePdf(ctx context.Context, payload CreatePdfPayload) (repo.Pdf, error)
 }
 
 type svc struct {
@@ -20,4 +21,8 @@ func NewService(repo repo.Querier) Service {
 
 func (s *svc) ListPdf(ctx context.Context) ([]repo.ListPdfRow, error) {
 	return s.repo.ListPdf(ctx)
+}
+
+func (s *svc) CreatePdf(ctx context.Context, payload CreatePdfPayload) (repo.Pdf, error) {
+	return s.repo.CreatePdf(ctx, payload.toRepoParams())
 }
