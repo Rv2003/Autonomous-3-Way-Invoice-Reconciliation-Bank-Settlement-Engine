@@ -13,6 +13,7 @@ FROM alpine:3.22
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=build /out/api ./api
+RUN mkdir uploads && chown app:app uploads
 
 USER app
 EXPOSE 8080
