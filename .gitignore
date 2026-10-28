@@ -1,0 +1,33 @@
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Node.js and Vite
+node_modules/
+dist/
+coverage/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.local
+
+# Go build and test outputs
+/BACKEND/api
+/BACKEND/api.exe
+/BACKEND/bin/
+*.test
+*.out
+coverage.txt
+
+# Local uploads and generated data
+/BACKEND/uploads/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
