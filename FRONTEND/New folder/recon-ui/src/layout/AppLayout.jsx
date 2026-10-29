@@ -51,7 +51,7 @@ export default function AppLayout() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 sx={{ '& .MuiBadge-badge': { bgcolor: '#22a06b', boxShadow: '0 0 0 2px #fff' } }}
               >
-                <Avatar sx={{ width: 38, height: 38, bgcolor: '#e8eef8', color: '#264c7a', fontSize: 13, fontWeight: 700 }}>
+                <Avatar sx={{ width: 38, height: 38, bgcolor: 'primary.light', color: 'primary.dark', fontSize: 13, fontWeight: 700 }}>
                   AD
                 </Avatar>
               </Badge>

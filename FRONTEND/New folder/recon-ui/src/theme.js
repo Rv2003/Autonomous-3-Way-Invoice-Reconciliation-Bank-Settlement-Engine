@@ -20,11 +20,11 @@ export const statusColors = {
   Disabled: ['#eceff3', '#5f6b7a'],
 };
 
-export const sourceColors = { WhatsApp: '#25d366', Gmail: '#e53935', 'Manual upload': '#1976d2' };
+export const sourceColors = { WhatsApp: '#25d366', Gmail: '#e53935', 'Manual upload': '#2563eb' };
 
 export default createTheme({
   palette: {
-    primary: { main: '#2469a6', dark: '#174d7d', light: '#e8f1fa' },
+    primary: { main: '#2563eb', dark: '#1d4ed8', light: '#eff6ff' },
     success: { main: '#2e7d32' },
     warning: { main: '#e65100' },
     error: { main: '#c62828' },

@@ -120,14 +120,14 @@ export default function Dashboard() {
 
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: 'repeat(3,1fr)' }, mb: 3 }}>
         <Card><CardContent>
-          <PanelHeader icon={<CloudUploadIcon />} color="#1976d2" bg="#e3f2fd" title="Manual Upload" sub="Admin upload to the pipeline" />
+          <PanelHeader icon={<CloudUploadIcon />} color="#2563eb" bg="#eff6ff" title="Manual Upload" sub="Admin upload to the pipeline" />
           <Box
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
               event.preventDefault();
               uploadQueue.addFiles(event.dataTransfer.files);
             }}
-            sx={{ border: '2px dashed #90caf9', bgcolor: '#f3f9ff', borderRadius: 2, p: 3, textAlign: 'center' }}
+            sx={{ border: '2px dashed #93c5fd', bgcolor: '#f5f8ff', borderRadius: 2, p: 3, textAlign: 'center' }}
           >
             <CloudUploadIcon color="primary" sx={{ fontSize: 40 }} />
             <Typography fontWeight={500}>Drag & drop invoices here</Typography>

@@ -7,7 +7,10 @@ npm install
 npm run dev
 ```
 
-Routes: `/` dashboard · `/documents` · `/review` · `/review/:id` (3-way match detail) · `/ledger` · `/users`.
+Routes: `/login` · `/register` · `/` dashboard · `/documents` · `/review` · `/review/:id` (3-way match detail) · `/ledger` · `/users`.
+
+The login and registration pages are static Material UI designs; their forms do not
+connect to an authentication service.
 
 The Documents page loads PDF records from `http://localhost:8080/pdf` and uploads files
 to `http://localhost:8080/pdf/submit` as multipart form data in the `file` field.
