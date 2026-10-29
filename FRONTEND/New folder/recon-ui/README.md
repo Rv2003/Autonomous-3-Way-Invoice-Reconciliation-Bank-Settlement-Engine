@@ -8,4 +8,9 @@ npm run dev
 ```
 
 Routes: `/` dashboard · `/documents` · `/review` · `/review/:id` (3-way match detail) · `/ledger` · `/users`.
-Mock data lives in `src/data/mock.js`; replace it with API calls when the backend is ready.
+
+The Documents page loads PDF records from `http://localhost:8080/pdf` and uploads files
+to `http://localhost:8080/pdf/submit` as multipart form data in the `file` field.
+Both manual upload screens support multiple PDFs and send them sequentially through
+an upload queue. Set `VITE_API_BASE_URL` to override the backend base URL. The backend
+permits browser requests from loopback origins for local development.

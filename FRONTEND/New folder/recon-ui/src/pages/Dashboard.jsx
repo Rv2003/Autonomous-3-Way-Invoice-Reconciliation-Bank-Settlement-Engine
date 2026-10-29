@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
-  Avatar, Box, Button, Card, CardContent, Chip, Divider, LinearProgress, Link as MuiLink, List, ListItem,
+  Alert, Avatar, Box, Button, Card, CardContent, Chip, Divider, Link as MuiLink, List, ListItem,
   ListItemAvatar, ListItemText, Stack, Typography,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -13,7 +13,10 @@ import StatCard from '../components/StatCard';
 import StatusChip from '../components/StatusChip';
 import SourceCell from '../components/SourceCell';
 import DataTable from '../components/DataTable';
-import { docs, whatsappFeed, gmailFeed } from '../data/mock';
+import PdfUploadQueue from '../components/PdfUploadQueue';
+import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
+import { whatsappFeed, gmailFeed } from '../data/mock';
+import { displayDocumentStatus, fetchDocuments } from '../api/documents';
 
 const types = ['Auto-detect', 'Supplier invoice', 'Purchase order', 'Bank transfer'];
 
@@ -48,13 +51,66 @@ function Feed({ items, color, bg }) {
 
 export default function Dashboard() {
   const [type, setType] = useState('Auto-detect');
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
+  const [error, setError] = useState('');
+  const fileInput = useRef(null);
+  const uploadQueue = usePdfUploadQueue();
+
+  const loadDocuments = useCallback(async () => {
+    setLoadingDocuments(true);
+    setError('');
+    try {
+      setDocuments(await fetchDocuments());
+    } catch (err) {
+      setError(err.message || 'Could not load documents from the backend.');
+    } finally {
+      setLoadingDocuments(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  const handleUploadQueue = async () => {
+    await uploadQueue.processQueue();
+    await loadDocuments();
+  };
+
+  const handleRetry = async () => {
+    await uploadQueue.retryFailed();
+    await loadDocuments();
+  };
+
+  const recentDocuments = documents.map((document) => ({
+    id: document.id,
+    name: document.original_name,
+    source: 'Manual upload',
+    type: 'PDF document',
+    company: '—',
+    status: displayDocumentStatus(document.status),
+  }));
+
   return (
     <>
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".pdf,application/pdf"
+        hidden
+        multiple
+        onChange={(event) => {
+          uploadQueue.addFiles(event.target.files);
+          event.target.value = '';
+        }}
+      />
       <PageHeader
         title="Document Ingestion"
         subtitle="Upload files manually or let WhatsApp and Gmail feed documents into the reconciliation pipeline."
-        actions={<Button variant="outlined">Refresh</Button>}
+        actions={<Button variant="outlined" onClick={loadDocuments} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
       />
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(4,1fr)' }, mb: 3 }}>
         <StatCard label="Documents today" value="128" sub="+12% vs yesterday" />
         <StatCard label="In pipeline" value="6" sub="Processing now" />
@@ -65,12 +121,26 @@ export default function Dashboard() {
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: 'repeat(3,1fr)' }, mb: 3 }}>
         <Card><CardContent>
           <PanelHeader icon={<CloudUploadIcon />} color="#1976d2" bg="#e3f2fd" title="Manual Upload" sub="Admin upload to the pipeline" />
-          <Box sx={{ border: '2px dashed #90caf9', bgcolor: '#f3f9ff', borderRadius: 2, p: 3, textAlign: 'center' }}>
+          <Box
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              uploadQueue.addFiles(event.dataTransfer.files);
+            }}
+            sx={{ border: '2px dashed #90caf9', bgcolor: '#f3f9ff', borderRadius: 2, p: 3, textAlign: 'center' }}
+          >
             <CloudUploadIcon color="primary" sx={{ fontSize: 40 }} />
             <Typography fontWeight={500}>Drag & drop invoices here</Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>PDF files only · up to 10 MB each</Typography>
-            <Button variant="contained" size="small">Browse files</Button>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>Add multiple PDFs · up to 25 MB each · uploaded one at a time</Typography>
+            <Button variant="contained" size="small" onClick={() => fileInput.current?.click()}>Browse files</Button>
           </Box>
+          <PdfUploadQueue
+            {...uploadQueue}
+            onUpload={handleUploadQueue}
+            onRetry={handleRetry}
+            onClearCompleted={uploadQueue.clearCompleted}
+            onClearQueue={uploadQueue.clearQueue}
+          />
           <Typography variant="body2" fontWeight={500} sx={{ mt: 2, mb: 1 }}>Document type</Typography>
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
             {types.map((t) => (
@@ -78,14 +148,19 @@ export default function Dashboard() {
                 color={type === t ? 'primary' : 'default'} variant={type === t ? 'filled' : 'outlined'} />
             ))}
           </Stack>
-          <Typography variant="body2" fontWeight={500} sx={{ mt: 2 }}>Upload queue</Typography>
+          <Typography variant="body2" fontWeight={500} sx={{ mt: 2 }}>Recent upload statuses</Typography>
           <Box sx={{ mt: 1 }}>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption">INV-2044_Cargills.pdf</Typography><Typography variant="caption" color="text.secondary">78%</Typography></Stack>
-            <LinearProgress variant="determinate" value={78} sx={{ height: 6, borderRadius: 3, my: 0.5 }} />
-            <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}><Typography variant="caption">BT-2211_Slip.pdf</Typography><Typography variant="caption" color="text.secondary">Uploaded</Typography></Stack>
-            <LinearProgress variant="determinate" value={100} color="success" sx={{ height: 6, borderRadius: 3, my: 0.5 }} />
+            {loadingDocuments && <Typography variant="caption" color="text.secondary">Loading documents…</Typography>}
+            {!loadingDocuments && recentDocuments.slice(0, 3).map((document) => (
+              <Stack key={document.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5, gap: 1 }}>
+                <Typography variant="caption" noWrap>{document.name}</Typography>
+                <StatusChip status={document.status} />
+              </Stack>
+            ))}
+            {!loadingDocuments && recentDocuments.length === 0 && !error && (
+              <Typography variant="caption" color="text.secondary">No uploaded documents yet.</Typography>
+            )}
           </Box>
-          <Button fullWidth variant="contained" sx={{ mt: 2 }}>Upload & process</Button>
         </CardContent></Card>
 
         <Card><CardContent>
@@ -122,7 +197,7 @@ export default function Dashboard() {
             { key: 'company', label: 'Company' },
             { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
           ]}
-          rows={docs.slice(0, 5)}
+          rows={recentDocuments.slice(0, 5)}
         />
       </Card>
     </>

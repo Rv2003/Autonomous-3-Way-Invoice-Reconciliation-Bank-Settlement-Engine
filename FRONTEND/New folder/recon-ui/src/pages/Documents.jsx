@@ -1,14 +1,27 @@
-import { useMemo, useState } from 'react';
-import { Button, InputAdornment, MenuItem, Stack, TablePagination, TextField } from '@mui/material';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Button, InputAdornment, MenuItem, Stack, TablePagination, TextField, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusChip from '../components/StatusChip';
 import SourceCell from '../components/SourceCell';
-import { docs } from '../data/mock';
+import PdfUploadQueue from '../components/PdfUploadQueue';
+import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
+import { displayDocumentStatus, fetchDocuments } from '../api/documents';
 
-const statuses = ['All', 'Processed', 'Processing', 'Needs review', 'Failed'];
+const statuses = ['All', 'Uploaded', 'Processed', 'Processing', 'Failed'];
 const sources = ['All', 'WhatsApp', 'Gmail', 'Manual upload'];
+
+function formatReceived(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes)) return '—';
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 export default function Documents() {
   const [q, setQ] = useState('');
@@ -16,24 +29,92 @@ export default function Documents() {
   const [source, setSource] = useState('All');
   const [page, setPage] = useState(0);
   const [rpp, setRpp] = useState(10);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const fileInput = useRef(null);
+  const uploadQueue = usePdfUploadQueue();
+
+  const loadDocuments = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setDocuments(await fetchDocuments());
+    } catch (err) {
+      setError(err.message || 'Could not load documents from the backend.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  const handleFileChange = (event) => {
+    uploadQueue.addFiles(event.target.files);
+    event.target.value = '';
+  };
+
+  const handleUploadQueue = async () => {
+    await uploadQueue.processQueue();
+    setPage(0);
+    await loadDocuments();
+  };
+
+  const handleRetry = async () => {
+    await uploadQueue.retryFailed();
+    setPage(0);
+    await loadDocuments();
+  };
 
   const rows = useMemo(
-    () => docs.filter((d) =>
-      (status === 'All' || d.status === status) &&
-      (source === 'All' || d.source === source) &&
-      `${d.name} ${d.company}`.toLowerCase().includes(q.toLowerCase())),
-    [q, status, source]
+    () => documents.map((document) => ({
+      id: document.id,
+      name: document.original_name,
+      source: 'Manual upload',
+      type: 'PDF document',
+      company: '—',
+      received: formatReceived(document.uploaded_at),
+      size: formatFileSize(document.size_bytes),
+      status: displayDocumentStatus(document.status),
+    })).filter((document) =>
+      (status === 'All' || document.status === status) &&
+      (source === 'All' || document.source === source) &&
+      `${document.name}`.toLowerCase().includes(q.toLowerCase())),
+    [documents, q, status, source]
   );
 
   return (
     <>
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".pdf,application/pdf"
+        hidden
+        multiple
+        onChange={handleFileChange}
+      />
       <PageHeader
         title="Documents"
-        subtitle="Every document received from WhatsApp, Gmail and manual upload, with its classification and status."
-        actions={<Button variant="contained">Upload document</Button>}
+        subtitle="Add multiple PDFs to the upload queue and track each file as it uploads sequentially."
+        actions={
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" onClick={loadDocuments} disabled={loading || uploadQueue.processing}>Refresh</Button>
+            <Button variant="outlined" onClick={() => fileInput.current?.click()}>Add PDFs</Button>
+          </Stack>
+        }
+      />
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <PdfUploadQueue
+        {...uploadQueue}
+        onUpload={handleUploadQueue}
+        onRetry={handleRetry}
+        onClearCompleted={uploadQueue.clearCompleted}
+        onClearQueue={uploadQueue.clearQueue}
       />
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-        <TextField size="small" fullWidth placeholder="Search by file name, company or invoice number" value={q}
+        <TextField size="small" fullWidth placeholder="Search by file name" value={q}
           onChange={(e) => { setQ(e.target.value); setPage(0); }}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
           sx={{ bgcolor: '#fff' }} />
@@ -43,7 +124,6 @@ export default function Documents() {
         <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 160, bgcolor: '#fff' }}>
           {statuses.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
         </TextField>
-        <Button variant="outlined">Export CSV</Button>
       </Stack>
       <DataTable
         columns={[
@@ -52,11 +132,15 @@ export default function Documents() {
           { key: 'type', label: 'Type' },
           { key: 'company', label: 'Company' },
           { key: 'received', label: 'Received' },
-          { key: 'confidence', label: 'Confidence' },
+          { key: 'size', label: 'Size' },
           { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
         ]}
-        rows={rows.slice(page * rpp, page * rpp + rpp)}
+        rows={loading ? [] : rows.slice(page * rpp, page * rpp + rpp)}
       />
+      {loading && <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>Loading documents…</Typography>}
+      {!loading && !error && rows.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>No documents found.</Typography>
+      )}
       <TablePagination component="div" count={rows.length} page={page} rowsPerPage={rpp}
         onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => { setRpp(+e.target.value); setPage(0); }} />
     </>
