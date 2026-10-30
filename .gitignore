@@ -1,0 +1,39 @@
+﻿# Environment variables and secrets
+# Environment variables and secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+
+# Go build files
+*.exe
+*.test
+*.out
+
+# Logs
+*.log
+
+# Uploaded documents and generated files
+uploads/
+pdf_uploads/
+
+# Node.js dependencies
+node_modules/
+
+# Frontend build output
+dist/
+
+# Environment-specific frontend files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE settings
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
