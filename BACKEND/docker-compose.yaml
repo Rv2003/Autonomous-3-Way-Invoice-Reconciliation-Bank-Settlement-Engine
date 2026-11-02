@@ -1,10 +1,11 @@
+
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8081:8080"
     volumes:
       - pdf_uploads:/app/uploads
     environment:
@@ -12,6 +13,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     develop:
       watch:
@@ -21,6 +24,19 @@ services:
             - .git/
             - uploads/
             - "*.md"
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["./migrate"]
+    environment:
+      GOOSE_DBSTRING: host=db user=invoice_app password=${POSTGRES_PASSWORD:-password123} dbname=invoice_reconciliation sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   db:
     image: postgres:17-alpine
     environment:
@@ -31,7 +47,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./internal/adapters/postgresql/migrations/00001_create_products.sql:/docker-entrypoint-initdb.d/00001_create_products.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -42,5 +57,3 @@ services:
 volumes:
   postgres_data:
   pdf_uploads:
-
-  
