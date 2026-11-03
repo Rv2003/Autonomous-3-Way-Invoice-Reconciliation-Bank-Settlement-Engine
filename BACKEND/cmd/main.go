@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -20,18 +20,22 @@ func main() {
 			dsn: env.GetString("GOOSE_DBSTRING", "host=localhost user=invoice_app password=password123 dbname=invoice_reconciliation sslmode=disable"),
 		},
 	}
-	conn, err := pgx.Connect(ctx, cfg.db.dsn)
+	pool, err := pgxpool.New(ctx, cfg.db.dsn)
 	if err != nil {
+		logger.Error("failed to create database connection pool", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+	if err := pool.Ping(ctx); err != nil {
 		logger.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer conn.Close(ctx)
 
 	logger.Info("connected to database")
 
 	api := application{
 		config: cfg,
-		db: conn,
+		db:     pool,
 	}
 	if err := api.run(api.mount()); err != nil {
 		slog.Error("Server has failed to start", "error", err)
