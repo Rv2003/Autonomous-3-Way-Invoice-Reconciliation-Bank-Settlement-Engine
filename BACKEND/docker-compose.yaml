@@ -8,6 +8,7 @@ services:
     volumes:
       - pdf_uploads:/app/uploads
     environment:
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       GOOSE_DBSTRING: host=db user=invoice_app password=${POSTGRES_PASSWORD:-password123} dbname=invoice_reconciliation sslmode=disable
     depends_on:
       db:
@@ -31,7 +32,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./internal/adapters/postgresql/migrations/00001_create_products.sql:/docker-entrypoint-initdb.d/00001_create_products.sql:ro
+      - ./internal/adapters/postgresql/init/00001_create_pdfs.sql:/docker-entrypoint-initdb.d/00001_create_pdfs.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s

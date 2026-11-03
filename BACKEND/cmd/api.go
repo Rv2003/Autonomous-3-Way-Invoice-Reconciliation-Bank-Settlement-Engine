@@ -43,6 +43,34 @@ func (app *application) mount() http.Handler {
 	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
 
+	// Public route: users can log in without an existing token.
+	r.Post("/auth/login", app.login)
+
+	// Protected routes: a valid JWT is required.
+	r.Group(func(r chi.Router) {
+		r.Use(app.authenticate)
+		r.Get("/auth/me", app.me)
+	})
+
+	// RBAC test routes
+	r.Group(func(r chi.Router) {
+		// Only administrators can access this route.
+		r.With(app.requireRole("administrator")).Get(
+			"/admin/test",
+			func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("Administrator access granted"))
+			},
+		)
+
+		// Both administrators and clerks can access this route.
+		r.With(app.requireRole("administrator", "clerk")).Get(
+			"/staff/test",
+			func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("Staff access granted"))
+			},
+		)
+	})
+
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hi"))
 	})
