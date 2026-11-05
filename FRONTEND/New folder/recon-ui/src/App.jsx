@@ -9,7 +9,6 @@ import MatchDetail from './pages/MatchDetail';
 import Ledger from './pages/Ledger';
 import Users from './pages/Users';
 import Login from './pages/Login';
-import Register from './pages/Register';
 
 function RequireAuth() {
   const { user, isLoading } = useAuth();
@@ -34,7 +33,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="login" element={<Login />} />
-      <Route path="register" element={<Register />} />
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route index element={<Dashboard />} />

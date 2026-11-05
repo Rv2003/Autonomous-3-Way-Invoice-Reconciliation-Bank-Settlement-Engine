@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { Avatar, Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Chip, Stack, Typography } from '@mui/material';
+import { Avatar, Box, Button, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Chip, Stack, Typography } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PersonIcon from '@mui/icons-material/Person';
-import { useAuth } from '../auth/AuthContext';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 export const DRAWER_WIDTH = 248;
 
@@ -36,11 +36,7 @@ const navSx = {
   },
 };
 
-export default function Sidebar({ variant = 'permanent', open = true, onClose }) {
-  const { user } = useAuth();
-  const userName = user?.full_name || 'User';
-  const userInitials = userName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-
+export default function Sidebar({ variant = 'permanent', open = true, onClose, onLogout }) {
   return (
     <Drawer
       variant={variant}
@@ -80,13 +76,15 @@ export default function Sidebar({ variant = 'permanent', open = true, onClose })
       </List>
 
       <Box sx={{ flexGrow: 1 }} />
-      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ m: 1.5, p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <Avatar sx={{ bgcolor: '#2563eb', width: 34, height: 34, fontSize: 12, fontWeight: 600 }}>{userInitials}</Avatar>
-        <Box>
-          <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{userName}</Typography>
-          <Typography sx={{ fontSize: 11, color: '#bfdbfe' }}>{user?.role || 'Workspace user'}</Typography>
-        </Box>
-      </Stack>
+      <Button
+        color="inherit"
+        startIcon={<LogoutIcon />}
+        onClick={onLogout}
+        aria-label="Log out"
+        sx={{ mx: 1.5, mb: 1.5, justifyContent: 'flex-start', borderRadius: 2, py: 1, color: '#dbeafe' }}
+      >
+        Log out
+      </Button>
     </Drawer>
   );
 }
