@@ -27,7 +27,12 @@ export default function Login() {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        credentials: 'include',
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          remember_me: rememberMe,
+        }),
       });
 
       if (!response.ok) {
@@ -38,12 +43,7 @@ export default function Login() {
         return;
       }
 
-      const { token } = await response.json();
-      if (!token) {
-        throw new Error('The server response did not include an authentication token.');
-      }
-
-      await login(token, rememberMe);
+      await login();
       navigate('/');
     } catch (requestError) {
       setError(requestError.message || 'Could not connect to the server. Please try again.');

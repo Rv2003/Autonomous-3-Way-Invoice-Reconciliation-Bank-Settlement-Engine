@@ -26,6 +26,7 @@ type authClaims struct {
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Remember bool   `json:"remember_me"`
 }
 
 type authUser struct {
@@ -38,6 +39,7 @@ type authUser struct {
 type contextKey string
 
 const authUserKey contextKey = "auth_user"
+const authCookieName = "auth_token"
 
 // jwtSecret reads the secret from the environment.
 func jwtSecret() ([]byte, error) {
@@ -48,7 +50,7 @@ func jwtSecret() ([]byte, error) {
 	return []byte(secret), nil
 }
 
-// login verifies the credentials and returns a signed token.
+// login verifies the credentials and sets a signed authentication cookie.
 func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	var input loginRequest
 
@@ -102,6 +104,10 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
+	tokenLifetime := 30 * time.Minute
+	if input.Remember {
+		tokenLifetime = 30 * 24 * time.Hour
+	}
 	claims := authClaims{
 		UserID:   user.ID,
 		FullName: user.FullName,
@@ -109,7 +115,7 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 		Role:     user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(30 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(tokenLifetime)),
 		},
 	}
 
@@ -120,20 +126,55 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authCookie := &http.Cookie{
+		Name:     authCookieName,
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   r.TLS != nil || strings.EqualFold(os.Getenv("COOKIE_SECURE"), "true"),
+		SameSite: http.SameSiteLaxMode,
+	}
+	if input.Remember {
+		authCookie.MaxAge = int(tokenLifetime.Seconds())
+		authCookie.Expires = now.Add(tokenLifetime)
+	}
+	http.SetCookie(w, authCookie)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"token": tokenString,
-		"user":  user,
+		"user": user,
 	})
+}
+
+// logout clears the authentication cookie.
+func (app *application) logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     authCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   r.TLS != nil || strings.EqualFold(os.Getenv("COOKIE_SECURE"), "true"),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // authenticate checks the JWT before allowing access to a protected route.
 func (app *application) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header := r.Header.Get("Authorization")
-		parts := strings.SplitN(header, " ", 2)
-
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		tokenString := ""
+		if cookie, err := r.Cookie(authCookieName); err == nil {
+			tokenString = cookie.Value
+		}
+		if tokenString == "" {
+			header := r.Header.Get("Authorization")
+			parts := strings.SplitN(header, " ", 2)
+			if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+				tokenString = parts[1]
+			}
+		}
+		if tokenString == "" {
 			http.Error(w, "Authentication required", http.StatusUnauthorized)
 			return
 		}
@@ -146,7 +187,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 
 		claims := &authClaims{}
 		token, err := jwt.ParseWithClaims(
-			parts[1],
+			tokenString,
 			claims,
 			func(token *jwt.Token) (any, error) {
 				if token.Method != jwt.SigningMethodHS256 {
@@ -166,7 +207,6 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
-
 
 func (app *application) me(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(authUserKey).(*authClaims)
@@ -205,5 +245,3 @@ func (app *application) requireRole(roles ...string) func(http.Handler) http.Han
 		}))
 	}
 }
-
-

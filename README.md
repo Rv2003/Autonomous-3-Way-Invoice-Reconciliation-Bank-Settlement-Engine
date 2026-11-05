@@ -43,6 +43,7 @@ Paste one value into `JWT_SECRET` and the other into `POSTGRES_PASSWORD` in `BAC
 |---|---|---|
 | `JWT_SECRET` | Yes | Signs API login tokens; use a random value at least 32 characters long. |
 | `POSTGRES_PASSWORD` | Recommended | Sets the local database password used by PostgreSQL and the API connection. |
+| `COOKIE_SECURE` | Production | Set to `true` when the API is served over HTTPS; leave `false` for local HTTP development. |
 | `GOOSE_DBSTRING` | For local Go runs/tools | Database connection string; Docker Compose supplies the API's value automatically. |
 | `SEED_USER_PASSWORD` | Only when creating a test user | Password input consumed by the one-off user-creation command. |
 | `VITE_API_BASE_URL` | Optional | Frontend API base URL; defaults to `http://localhost:8080`. |
@@ -68,6 +69,16 @@ docker compose down
 
 Avoid `docker compose down -v` unless you intend to delete the database volume.
 
+### Automatic API rebuilds during development
+
+The API service watches backend files and rebuilds its image when they change. From `BACKEND`, run this in a terminal and leave it open while developing:
+
+```bash
+docker compose up --build --watch
+```
+
+Edits under `BACKEND` trigger an API rebuild and restart; `.git`, `uploads`, and Markdown files are ignored. Press `Ctrl+C` to stop the watch session. For a one-time detached start without watching, use `docker compose up -d --build` instead.
+
 ## Start the frontend
 
 In a second terminal, from the repository root:
@@ -84,7 +95,7 @@ Open <http://localhost:5173>. The frontend uses `http://localhost:8080` as its d
 VITE_API_BASE_URL=http://localhost:8080
 ```
 
-Restart Vite after changing frontend environment variables. The API allows `http://localhost:5173` and the `Authorization` header used by authenticated requests. Use that exact localhost URL during development.
+Restart Vite after changing frontend environment variables. The API allows local loopback origins and credentialed requests. Use `http://localhost:5173` during development. For HTTPS deployments, set `COOKIE_SECURE=true` so the authentication cookie is only sent over HTTPS.
 
 ## Create a test login
 
@@ -105,7 +116,7 @@ go run ./cmd/create-user -name "$USER_NAME" -email "$USER_EMAIL"
 unset SEED_USER_PASSWORD GOOSE_DBSTRING JWT_SECRET POSTGRES_PASSWORD
 ```
 
-Use the email and password entered above to sign in at <http://localhost:5173/login>. The login flow calls `POST /auth/login`, then fetches the current user's profile from `GET /auth/me`. The verified user and token are shared with components through the React auth context.
+Use the email and password entered above to sign in at <http://localhost:5173/login>. The login flow calls `POST /auth/login`, which sets an HttpOnly authentication cookie, then fetches the current user's profile from `GET /auth/me`. The verified user is shared with components through the React auth context; the JWT is not stored in browser local or session storage. Unchecking “Keep me signed in” creates a session cookie/token; checking it makes the cookie/token valid for 30 days.
 
 ## Core API routes
 
@@ -113,11 +124,12 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 |---|---|---|---|
 | `GET` | `/health` | Public | Health check |
 | `POST` | `/auth/login` | Public | Authenticate with email and password |
-| `GET` | `/auth/me` | Bearer token | Return the authenticated user's profile |
+| `GET` | `/auth/me` | HttpOnly auth cookie | Return the authenticated user's profile |
+| `POST` | `/auth/logout` | Public; clears auth cookie | Sign out |
 | `GET` | `/pdf` | Public | List PDF records |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |
 
-Authentication tokens are JWTs and expire after 30 minutes.
+Authentication uses an HttpOnly, SameSite=Lax cookie. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
 
 ## Local development and checks
 

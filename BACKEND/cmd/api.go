@@ -45,11 +45,13 @@ func (app *application) mount() http.Handler {
 
 	// Public route: users can log in without an existing token.
 	r.Post("/auth/login", app.login)
+	r.Post("/auth/logout", app.logout)
 
 	// Protected routes: a valid JWT is required.
 	r.Group(func(r chi.Router) {
 		r.Use(app.authenticate)
 		r.Get("/auth/me", app.me)
+		r.Get("/auth/profile", app.me)
 	})
 
 	// RBAC test routes
@@ -70,8 +72,6 @@ func (app *application) mount() http.Handler {
 			},
 		)
 	})
-
-	r.Get("/auth/profile",app.login)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hi"))
@@ -97,9 +97,10 @@ func localFrontendCORS(next http.Handler) http.Handler {
 				return
 			}
 
-			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Add("Vary", "Origin")
 		}
 

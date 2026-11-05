@@ -3,9 +3,9 @@ import { API_BASE_URL } from '../components/api/documents';
 
 const AuthContext = createContext(null);
 
-async function fetchCurrentUser(token) {
+async function fetchCurrentUser() {
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -20,35 +20,25 @@ async function fetchCurrentUser(token) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
-    const savedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
 
-    if (!savedToken) {
-      setIsLoading(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    fetchCurrentUser(savedToken)
+    fetchCurrentUser()
       .then((currentUser) => {
         if (!active) return;
-        setToken(savedToken);
         setUser(currentUser);
       })
       .catch((requestError) => {
         if (!active) return;
-        setError(requestError.message || 'Could not load the signed-in user.');
-        if (requestError.status === 401) {
-          localStorage.removeItem('token');
-          sessionStorage.removeItem('token');
-          localStorage.removeItem('user');
-          sessionStorage.removeItem('user');
+        if (requestError.status !== 401) {
+          setError(requestError.message || 'Could not load the signed-in user.');
         }
       })
       .finally(() => {
@@ -60,35 +50,36 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = useCallback(async (newToken, rememberMe) => {
-    const currentUser = await fetchCurrentUser(newToken);
-    const storage = rememberMe ? localStorage : sessionStorage;
-    const otherStorage = rememberMe ? sessionStorage : localStorage;
-
-    storage.setItem('token', newToken);
-    storage.setItem('user', JSON.stringify(currentUser));
-    otherStorage.removeItem('token');
-    otherStorage.removeItem('user');
-    setToken(newToken);
+  const login = useCallback(async () => {
+    const currentUser = await fetchCurrentUser();
     setUser(currentUser);
     setError('');
 
     return currentUser;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).trim();
+      throw new Error(detail || `Sign out failed (${response.status}).`);
+    }
+
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('user');
-    setToken(null);
+    setIsLoading(false);
     setUser(null);
     setError('');
   }, []);
 
   const value = useMemo(
-    () => ({ user, token, isLoading, error, login, logout }),
-    [user, token, isLoading, error, login, logout],
+    () => ({ user, isLoading, error, login, logout }),
+    [user, isLoading, error, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
