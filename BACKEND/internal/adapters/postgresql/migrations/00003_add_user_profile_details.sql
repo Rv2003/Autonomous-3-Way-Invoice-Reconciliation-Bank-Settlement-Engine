@@ -1,9 +1,9 @@
 -- +goose Up
 ALTER TABLE users
-    ADD COLUMN employee_number TEXT,
-    ADD COLUMN phone_number TEXT;
+    ADD COLUMN IF NOT EXISTS employee_number TEXT,
+    ADD COLUMN IF NOT EXISTS phone_number TEXT;
 
-CREATE UNIQUE INDEX idx_users_employee_number
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_employee_number
     ON users (employee_number)
     WHERE employee_number IS NOT NULL;
 

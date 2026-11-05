@@ -88,6 +88,7 @@ func (app *application) mount() http.Handler {
 	pdfHandler := pdf.NewHandler(pdfService)
 	emailService := email.NewService(repo.New(app.db))
 	emailHandler := email.NewHandler(emailService)
+	r.Post("/webhooks/gmail", emailHandler.GmailWebhook)
 	r.Get("/pdf", pdfHandler.ListPdf)
 	r.Get("/pdf/{id}/file", pdfHandler.ViewPdf)
 	r.Post("/pdf/submit", pdfHandler.CreatePdf)

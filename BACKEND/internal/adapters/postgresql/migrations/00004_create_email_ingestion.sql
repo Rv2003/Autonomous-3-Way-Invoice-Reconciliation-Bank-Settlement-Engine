@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 
-CREATE TABLE email_mailboxes (
+CREATE TABLE IF NOT EXISTS email_mailboxes (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     provider         TEXT NOT NULL CHECK (provider IN ('gmail')),
     email_address    TEXT NOT NULL,
@@ -16,11 +16,11 @@ CREATE TABLE email_mailboxes (
         UNIQUE (provider, email_address)
 );
 
-CREATE INDEX idx_email_mailboxes_status
+CREATE INDEX IF NOT EXISTS idx_email_mailboxes_status
     ON email_mailboxes (status);
 
 
-CREATE TABLE email_ingestion_events (
+CREATE TABLE IF NOT EXISTS email_ingestion_events (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     mailbox_id        UUID NOT NULL REFERENCES email_mailboxes(id) ON DELETE CASCADE,
     pubsub_message_id TEXT NOT NULL,
@@ -37,15 +37,14 @@ CREATE TABLE email_ingestion_events (
         UNIQUE (mailbox_id, pubsub_message_id)
 );
 
-CREATE INDEX idx_email_ingestion_mailbox_history
+CREATE INDEX IF NOT EXISTS idx_email_ingestion_mailbox_history
     ON email_ingestion_events (mailbox_id, history_id);
 
-CREATE INDEX idx_email_ingestion_status
+CREATE INDEX IF NOT EXISTS idx_email_ingestion_status
     ON email_ingestion_events (status);
 
-CREATE INDEX idx_email_ingestion_received_at
+CREATE INDEX IF NOT EXISTS idx_email_ingestion_received_at
     ON email_ingestion_events (received_at DESC);
-
 
 -- +goose StatementEnd
 
