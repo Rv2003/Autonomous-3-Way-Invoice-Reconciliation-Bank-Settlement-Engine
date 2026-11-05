@@ -1,11 +1,10 @@
-
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8081:8080"
+      - "8080:8080"
     volumes:
       - pdf_uploads:/app/uploads
     environment:
@@ -41,11 +40,6 @@ services:
         condition: service_healthy
     restart: "no"
 
-        path: .
-        ignore:
-          - .git/
-          - uploads/
-          - "*.md"
   db:
     image: postgres:17-alpine
     environment:
