@@ -16,6 +16,11 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
+	if _, err := jwtSecret(); err != nil {
+		logger.Error("authentication is not configured", "error", err)
+		os.Exit(1)
+	}
+
 	cfg := config{
 		addr: ":8080",
 		db: dbConfig{

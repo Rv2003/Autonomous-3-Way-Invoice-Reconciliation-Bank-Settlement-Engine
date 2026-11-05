@@ -1,4 +1,5 @@
 -- +goose Up
+-- Inbound document storage migration.
 CREATE TABLE IF NOT EXISTS inbound_documents (
     id                  BIGSERIAL PRIMARY KEY,
     source              TEXT        NOT NULL,           -- 'telegram' | 'whatsapp' | 'email' | 'upload'
@@ -20,4 +21,3 @@ CREATE INDEX IF NOT EXISTS idx_inbound_documents_sha256 ON inbound_documents (sh
 
 -- +goose Down
 DROP TABLE IF EXISTS inbound_documents;
-

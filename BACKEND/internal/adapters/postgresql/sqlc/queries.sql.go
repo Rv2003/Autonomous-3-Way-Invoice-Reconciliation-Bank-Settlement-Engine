@@ -155,6 +155,8 @@ func (q *Queries) GetEmailMailboxByEmail(ctx context.Context, arg GetEmailMailbo
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
 const deletePdf = `-- name: DeletePdf :one
 DELETE FROM pdfs
 WHERE id::text = $1

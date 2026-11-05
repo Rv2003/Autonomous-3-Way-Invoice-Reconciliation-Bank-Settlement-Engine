@@ -5,7 +5,7 @@ import {
   Paper, Stack, TextField, Typography,
 } from '@mui/material';
 import LockResetIcon from '@mui/icons-material/LockReset';
-import { changePassword, updateProfile } from '../components/api/auth';
+import { changePassword, updateProfile } from '../api/auth';
 
 const emptyPassword = { current_password: '', new_password: '', confirm_password: '' };
 

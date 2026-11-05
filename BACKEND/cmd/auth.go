@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -47,7 +49,7 @@ const authCookieName = "auth_token"
 
 // jwtSecret reads the secret from the environment.
 func jwtSecret() ([]byte, error) {
-	secret := os.Getenv("JWT_SECRET")
+	secret := strings.TrimSpace(env.GetString("JWT_SECRET", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
 	if len(secret) < 32 {
 		return nil, errors.New("JWT_SECRET must contain at least 32 characters")
 	}
@@ -90,6 +92,7 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 			return
 		}
+		slog.Error("login database query failed", "error", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
@@ -103,6 +106,7 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 
 	secret, err := jwtSecret()
 	if err != nil {
+		slog.Error("login authentication is not configured", "error", err)
 		http.Error(w, "Authentication is not configured", http.StatusInternalServerError)
 		return
 	}

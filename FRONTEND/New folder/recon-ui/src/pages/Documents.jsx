@@ -9,7 +9,7 @@ import StatusChip from '../components/StatusChip';
 import SourceCell from '../components/SourceCell';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
-import { deleteDocument, displayDocumentStatus, fetchDocuments, getDocumentUrl } from '../components/api/documents';
+import { deleteDocument, displayDocumentStatus, fetchDocuments, getDocumentUrl } from '../api/documents';
 
 const statuses = ['All', 'Uploaded', 'Processed', 'Processing', 'Failed'];
 const sources = ['All', 'Documents via Telegram', 'WhatsApp', 'Gmail', 'Manual upload'];

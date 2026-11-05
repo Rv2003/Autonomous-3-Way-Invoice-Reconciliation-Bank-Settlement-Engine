@@ -7,7 +7,7 @@ import {
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
-import { createUser, fetchUsers, updateUserRole } from '../components/api/users';
+import { createUser, fetchUsers, updateUserRole } from '../api/users';
 
 const roleLabels = { administrator: 'Administrator', clerk: 'Clerk' };
 

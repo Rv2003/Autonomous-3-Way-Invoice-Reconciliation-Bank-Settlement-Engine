@@ -56,11 +56,19 @@ func (app *application) mount() http.Handler {
 		r.Patch("/auth/password", app.changePassword)
 	})
 
+	emailService := email.NewService(repo.New(app.db))
+	emailHandler := email.NewHandler(emailService)
+
 	r.Group(func(r chi.Router) {
 		r.Use(app.requireRole("administrator"))
 		r.Get("/users", app.listUsers)
 		r.Post("/users", app.createUser)
 		r.Patch("/users/{id}/role", app.updateUserRole)
+		r.Post("/email/mailboxes", emailHandler.CreateMailbox)
+		r.Get("/email/ingestion-events", emailHandler.ListIngestionEvents)
+		r.Patch("/email/ingestion-events/{id}/processing", emailHandler.ProcessIngestionEvent)
+		r.Patch("/email/ingestion-events/{id}/processed", emailHandler.CompleteIngestionEvent)
+		r.Patch("/email/ingestion-events/{id}/failed", emailHandler.FailIngestionEvent)
 	})
 
 	r.Group(func(r chi.Router) {
@@ -84,8 +92,6 @@ func (app *application) mount() http.Handler {
 
 	pdfService := pdf.NewService(repo.New(app.db))
 	pdfHandler := pdf.NewHandler(pdfService)
-	emailService := email.NewService(repo.New(app.db))
-	emailHandler := email.NewHandler(emailService)
 	r.Get("/pdf", pdfHandler.ListPdf)
 	r.Get("/pdf/{id}/file", pdfHandler.ViewPdf)
 	r.Post("/pdf/submit", pdfHandler.CreatePdf)

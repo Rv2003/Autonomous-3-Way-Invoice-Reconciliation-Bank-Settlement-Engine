@@ -6,7 +6,7 @@ import {
 import errorIcon from '../assets/auth/error.svg';
 import checkIcon from '../assets/auth/check.svg';
 import AuthLayout, { AuthField } from '../layout/AuthLayout';
-import { API_BASE_URL } from '../components/api/documents';
+import { API_BASE_URL } from '../api/documents';
 import { useAuth } from '../auth/AuthContext';
 
 export default function Login() {

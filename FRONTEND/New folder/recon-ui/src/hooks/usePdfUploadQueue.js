@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { displayDocumentStatus, uploadPdf } from '../components/api/documents';
+import { displayDocumentStatus, uploadPdf } from '../api/documents';
 
 const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
 let nextQueueId = 0;

@@ -9,6 +9,8 @@ import (
 func init() {
 	loadDotEnv(".env")
 	loadDotEnv("../.env")
+	loadDotEnv("BACKEND/.env")
+	loadDotEnv("../../BACKEND/.env")
 }
 
 func loadDotEnv(path string) {

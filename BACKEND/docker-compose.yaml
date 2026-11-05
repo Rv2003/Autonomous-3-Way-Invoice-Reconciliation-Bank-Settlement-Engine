@@ -40,12 +40,6 @@ services:
       db:
         condition: service_healthy
     restart: "no"
-
-        path: .
-        ignore:
-          - .git/
-          - uploads/
-          - "*.md"
   db:
     image: postgres:17-alpine
     environment:
