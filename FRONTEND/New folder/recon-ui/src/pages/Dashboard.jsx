@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Alert, Avatar, Box, Button, Card, CardContent, Chip, Divider, Link as MuiLink, List, ListItem,
@@ -16,7 +16,7 @@ import DataTable from '../components/DataTable';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
 import { whatsappFeed, gmailFeed } from '../data/mock';
-import { displayDocumentStatus, fetchDocuments } from '../api/documents';
+import { displayDocumentStatus, fetchDocuments, fetchWhatsAppFeed } from '../api/documents';
 
 const types = ['Auto-detect', 'Supplier invoice', 'Purchase order', 'Bank transfer'];
 
@@ -37,7 +37,7 @@ function Feed({ items, color, bg }) {
   return (
     <List disablePadding>
       {items.map((f, i) => (
-        <Box key={f.name}>
+        <Box key={f.name + i}>
           {i > 0 && <Divider component="li" />}
           <ListItem disableGutters secondaryAction={<StatusChip status={f.status} />}>
             <ListItemAvatar><Avatar sx={{ bgcolor: bg, color, width: 36, height: 36 }}><DescriptionIcon fontSize="small" /></Avatar></ListItemAvatar>
@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [documents, setDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
   const [error, setError] = useState('');
+  const [waFeed, setWaFeed] = useState([]);
   const fileInput = useRef(null);
   const uploadQueue = usePdfUploadQueue();
 
@@ -69,9 +70,21 @@ export default function Dashboard() {
     }
   }, []);
 
+  const loadWaFeed = useCallback(async () => {
+    const data = await fetchWhatsAppFeed();
+    setWaFeed(data);
+  }, []);
+
   useEffect(() => {
     loadDocuments();
-  }, [loadDocuments]);
+    loadWaFeed();
+    // Live polling every 5 seconds to update WhatsApp documents automatically
+    const timer = setInterval(() => {
+      loadDocuments();
+      loadWaFeed();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [loadDocuments, loadWaFeed]);
 
   const handleUploadQueue = async () => {
     await uploadQueue.processQueue();
@@ -83,10 +96,27 @@ export default function Dashboard() {
     await loadDocuments();
   };
 
+  const displayWaItems = useMemo(() => {
+    if (waFeed && waFeed.length > 0) {
+      return waFeed.map((item) => {
+        const date = item.received_at ? new Date(item.received_at) : null;
+        const timeStr = date && !isNaN(date.getTime())
+          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Just now';
+        return {
+          name: item.original_filename || `Document_${item.id}.pdf`,
+          meta: `${item.sender || 'WhatsApp'} · ${timeStr}`,
+          status: displayDocumentStatus(item.status),
+        };
+      });
+    }
+    return whatsappFeed;
+  }, [waFeed]);
+
   const recentDocuments = documents.map((document) => ({
     id: document.id,
     name: document.original_name,
-    source: 'Manual upload',
+    source: document.source || 'Manual upload',
     type: 'PDF document',
     company: '—',
     status: displayDocumentStatus(document.status),
@@ -108,11 +138,11 @@ export default function Dashboard() {
       <PageHeader
         title="Document Ingestion"
         subtitle="Upload files manually or let WhatsApp and Gmail feed documents into the reconciliation pipeline."
-        actions={<Button variant="outlined" onClick={loadDocuments} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
+        actions={<Button variant="outlined" onClick={() => { loadDocuments(); loadWaFeed(); }} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(4,1fr)' }, mb: 3 }}>
-        <StatCard label="Documents today" value="128" sub="+12% vs yesterday" />
+        <StatCard label="Documents today" value={128 + waFeed.length} sub="+12% vs yesterday" />
         <StatCard label="In pipeline" value="6" sub="Processing now" />
         <StatCard label="Needs review" value="14" sub="In exceptions queue" color="warning.main" />
         <StatCard label="Failed extraction" value="3" sub="Check source files" color="error.main" />
@@ -141,12 +171,9 @@ export default function Dashboard() {
             onClearCompleted={uploadQueue.clearCompleted}
             onClearQueue={uploadQueue.clearQueue}
           />
-          <Typography variant="body2" fontWeight={500} sx={{ mt: 2, mb: 1 }}>Document type</Typography>
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            {types.map((t) => (
-              <Chip key={t} label={t} size="small" clickable onClick={() => setType(t)}
-                color={type === t ? 'primary' : 'default'} variant={type === t ? 'filled' : 'outlined'} />
-            ))}
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            <Button fullWidth variant="contained" size="small" onClick={handleUploadQueue} disabled={uploadQueue.queue.length === 0 || uploadQueue.processing}>Upload all ({uploadQueue.queue.length})</Button>
+            <Button variant="outlined" size="small" onClick={uploadQueue.clearQueue} disabled={uploadQueue.queue.length === 0 || uploadQueue.processing}>Clear</Button>
           </Stack>
           <Typography variant="body2" fontWeight={500} sx={{ mt: 2 }}>Recent upload statuses</Typography>
           <Box sx={{ mt: 1 }}>
@@ -166,11 +193,11 @@ export default function Dashboard() {
         <Card><CardContent>
           <PanelHeader icon={<ChatIcon />} color="#00897b" bg="#e0f2f1" title="Live WhatsApp Extraction" sub="Incoming documents via webhook" tag={<Chip size="small" label="● Live" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }} />} />
           <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Business number</Typography><Typography variant="caption" fontWeight={500}>+94 77 ••• 4567</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Webhook</Typography><Typography variant="caption" fontWeight={500}>Active · 38 today</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Business number</Typography><Typography variant="caption" fontWeight={500}>+1 555 208 2364</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Webhook</Typography><Typography variant="caption" fontWeight={500}>{waFeed.length > 0 ? `Active · ${waFeed.length} received` : 'Active · Waiting'}</Typography></Stack>
           </Box>
-          <Feed items={whatsappFeed} color="#1976d2" bg="#e0f2f1" />
-          <Button fullWidth variant="outlined" sx={{ mt: 1.5 }}>View all messages</Button>
+          <Feed items={displayWaItems} color="#1976d2" bg="#e0f2f1" />
+          <Button fullWidth variant="outlined" sx={{ mt: 1.5 }} onClick={loadWaFeed}>Refresh WhatsApp feed</Button>
         </CardContent></Card>
 
         <Card><CardContent>

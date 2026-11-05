@@ -1,0 +1,62 @@
+info:
+  name: WHATSAPP WEBHOOK RECEIVE
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://localhost:8080/webhooks/whatsapp
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    data: |
+      {
+        "object": "whatsapp_business_account",
+        "entry": [
+          {
+            "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+            "changes": [
+              {
+                "field": "messages",
+                "value": {
+                  "messaging_product": "whatsapp",
+                  "metadata": {
+                    "display_phone_number": "15550234567",
+                    "phone_number_id": "100609346426084"
+                  },
+                  "contacts": [
+                    {
+                      "profile": {
+                        "name": "Supplier Representative"
+                      },
+                      "wa_id": "94771234567"
+                    }
+                  ],
+                  "messages": [
+                    {
+                      "from": "94771234567",
+                      "id": "wamid.HBgMOTE3NzEyMzQ1NjcVAgASGBgyM0FBQ0ExRjM0NUMxRUI2NjA0MUQxMDcA",
+                      "timestamp": "1730419200",
+                      "type": "document",
+                      "document": {
+                        "filename": "Invoice_INV-9921.pdf",
+                        "mime_type": "application/pdf",
+                        "id": "123456789012345"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
