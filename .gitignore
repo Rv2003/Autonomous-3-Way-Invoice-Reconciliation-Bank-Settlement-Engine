@@ -71,3 +71,7 @@ coverage.txt
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Gmail OAuth credentials and tokens
+/BACKEND/credentials/
+/BACKEND/tokens/
