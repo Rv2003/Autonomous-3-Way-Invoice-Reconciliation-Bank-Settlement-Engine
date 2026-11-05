@@ -1,6 +1,7 @@
+-- Active: 1793027128253@@127.0.0.1@5432@invoice_reconciliation
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE pdfs (
+CREATE TABLE IF NOT EXISTS pdfs (
     id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     original_name  TEXT        NOT NULL,
     stored_path    TEXT        NOT NULL,
@@ -16,8 +17,8 @@ CREATE TABLE pdfs (
     processed_at   TIMESTAMPTZ
 );
 
-CREATE INDEX idx_pdfs_status      ON pdfs (status);
-CREATE INDEX idx_pdfs_uploaded_at ON pdfs (uploaded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pdfs_status      ON pdfs (status);
+CREATE INDEX IF NOT EXISTS idx_pdfs_uploaded_at ON pdfs (uploaded_at DESC);
 -- +goose StatementEnd
 
 -- +goose Down

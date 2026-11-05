@@ -8,6 +8,10 @@ require (
 	github.com/pressly/goose/v3 v3.29.0
 	golang.org/x/oauth2 v0.37.0
 	google.golang.org/api v0.310.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/jackc/pgx/v5 v5.11.0
+	github.com/pressly/goose/v3 v3.26.0
+	golang.org/x/crypto v0.58.1-0.20261009181718-2f1f834330b2
 )
 
 require (
@@ -42,4 +46,10 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261019180522-ce908d29299b // indirect
 	google.golang.org/grpc v1.84.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
+	github.com/sethvargo/go-retry v0.3.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 )
