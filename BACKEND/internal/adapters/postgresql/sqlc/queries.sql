@@ -12,6 +12,11 @@ INSERT INTO pdfs (original_name, stored_path, size_bytes, sha256)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 
+-- name: DeletePdf :one
+DELETE FROM pdfs
+WHERE id::text = $1
+RETURNING stored_path;
+
 -- name: UpdatePdfStatus :exec
 UPDATE pdfs
 SET status = $2, processed_at = now()

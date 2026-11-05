@@ -127,6 +127,7 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `GET` | `/auth/me` | HttpOnly auth cookie | Return the authenticated user's profile |
 | `POST` | `/auth/logout` | Public; clears auth cookie | Sign out |
 | `GET` | `/pdf` | Public | List PDF records |
+| `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |
 
 Authentication uses an HttpOnly, SameSite=Lax cookie. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, InputAdornment, MenuItem, Stack, TablePagination, TextField, Typography } from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Stack, TablePagination, TextField, Tooltip, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusChip from '../components/StatusChip';
 import SourceCell from '../components/SourceCell';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
-import { displayDocumentStatus, fetchDocuments } from '../components/api/documents';
+import { deleteDocument, displayDocumentStatus, fetchDocuments, getDocumentUrl } from '../components/api/documents';
 
 const statuses = ['All', 'Uploaded', 'Processed', 'Processing', 'Failed'];
 const sources = ['All', 'WhatsApp', 'Gmail', 'Manual upload'];
@@ -32,6 +34,9 @@ export default function Documents() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [deletingId, setDeletingId] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const fileInput = useRef(null);
   const uploadQueue = usePdfUploadQueue();
 
@@ -66,6 +71,22 @@ export default function Documents() {
     await uploadQueue.retryFailed();
     setPage(0);
     await loadDocuments();
+  };
+
+  const handleDeleteDocument = async () => {
+    if (!documentToDelete) return;
+    setDeleteError('');
+    setDeletingId(documentToDelete.id);
+    try {
+      await deleteDocument(documentToDelete.id);
+      setDocuments((current) => current.filter((document) => document.id !== documentToDelete.id));
+      setPage((current) => Math.min(current, Math.max(0, Math.ceil((rows.length - 1) / rpp) - 1)));
+      setDocumentToDelete(null);
+    } catch (err) {
+      setDeleteError(err.message || 'Could not delete this document.');
+    } finally {
+      setDeletingId('');
+    }
   };
 
   const rows = useMemo(
@@ -106,6 +127,7 @@ export default function Documents() {
         }
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {deleteError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDeleteError('')}>{deleteError}</Alert>}
       <PdfUploadQueue
         {...uploadQueue}
         onUpload={handleUploadQueue}
@@ -134,6 +156,50 @@ export default function Documents() {
           { key: 'received', label: 'Received' },
           { key: 'size', label: 'Size' },
           { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
+          {
+            key: 'view',
+            label: '',
+            align: 'right',
+            render: (r) => (
+              <Tooltip title="View document">
+                <IconButton
+                  aria-label={`View ${r.name}`}
+                  component="a"
+                  href={getDocumentUrl(r.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  size="small"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <VisibilityOutlinedIcon />
+                </IconButton>
+              </Tooltip>
+            ),
+          },
+          {
+            key: 'actions',
+            label: '',
+            align: 'right',
+            render: (r) => (
+              <Tooltip title="Delete document">
+                <span>
+                  <IconButton
+                    aria-label={`Delete ${r.name}`}
+                    color="error"
+                    size="small"
+                    disabled={Boolean(deletingId)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDeleteError('');
+                      setDocumentToDelete(r);
+                    }}
+                  >
+                    <DeleteOutlineIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            ),
+          },
         ]}
         rows={loading ? [] : rows.slice(page * rpp, page * rpp + rpp)}
       />
@@ -143,6 +209,23 @@ export default function Documents() {
       )}
       <TablePagination component="div" count={rows.length} page={page} rowsPerPage={rpp}
         onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => { setRpp(+e.target.value); setPage(0); }} />
+      <Dialog
+        open={Boolean(documentToDelete)}
+        onClose={() => !deletingId && setDocumentToDelete(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete document?</DialogTitle>
+        <DialogContent>
+          {documentToDelete ? `This will permanently delete "${documentToDelete.name}".` : ''}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDocumentToDelete(null)} disabled={Boolean(deletingId)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={handleDeleteDocument} disabled={Boolean(deletingId)}>
+            {deletingId ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

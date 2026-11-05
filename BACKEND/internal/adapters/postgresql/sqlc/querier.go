@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	CreatePdf(ctx context.Context, arg CreatePdfParams) (Pdf, error)
+	DeletePdf(ctx context.Context, id string) (string, error)
 	GetPdf(ctx context.Context, id pgtype.UUID) (Pdf, error)
 	ListPdf(ctx context.Context) ([]ListPdfRow, error)
 	UpdatePdfStatus(ctx context.Context, arg UpdatePdfStatusParams) error
