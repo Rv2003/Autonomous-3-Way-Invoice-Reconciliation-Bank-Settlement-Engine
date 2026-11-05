@@ -1,11 +1,10 @@
-
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8081:8080"
+      - "8080:8080"
     volumes:
       - pdf_uploads:/app/uploads
     environment:
@@ -15,8 +14,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     restart: unless-stopped
     develop:
       watch:
@@ -26,19 +23,6 @@ services:
             - .git/
             - uploads/
             - "*.md"
-
-  migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    entrypoint: ["./migrate"]
-    environment:
-      GOOSE_DBSTRING: host=db user=invoice_app password=${POSTGRES_PASSWORD:-password123} dbname=invoice_reconciliation sslmode=disable
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
-
   db:
     image: postgres:17-alpine
     environment:
