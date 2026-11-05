@@ -8,6 +8,7 @@ import ReviewQueue from './pages/ReviewQueue';
 import MatchDetail from './pages/MatchDetail';
 import Ledger from './pages/Ledger';
 import Users from './pages/Users';
+import Profile from './pages/Profile';
 import Login from './pages/Login';
 
 function RequireAuth() {
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="review/:id" element={<MatchDetail />} />
           <Route path="ledger" element={<Ledger />} />
           <Route path="users" element={<Users />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
       </Route>
     </Routes>

@@ -5,7 +5,9 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PersonIcon from '@mui/icons-material/Person';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { useAuth } from '../auth/AuthContext';
 
 export const DRAWER_WIDTH = 248;
 
@@ -14,7 +16,6 @@ const items = [
   { to: '/documents', label: 'Documents', icon: <DescriptionIcon /> },
   { to: '/review', label: 'Review Queue', icon: <ReportProblemIcon />, badge: 14 },
   { to: '/ledger', label: 'Ledger', icon: <MenuBookIcon /> },
-  { to: '/users', label: 'Users', icon: <PersonIcon /> },
 ];
 
 const navSx = {
@@ -37,6 +38,13 @@ const navSx = {
 };
 
 export default function Sidebar({ variant = 'permanent', open = true, onClose, onLogout }) {
+  const { user } = useAuth();
+  const navigationItems = [
+    ...items,
+    ...(user?.role === 'administrator' ? [{ to: '/users', label: 'Users', icon: <PersonIcon /> }] : []),
+    { to: '/profile', label: 'Profile', icon: <AccountCircleIcon /> },
+  ];
+
   return (
     <Drawer
       variant={variant}
@@ -64,7 +72,7 @@ export default function Sidebar({ variant = 'permanent', open = true, onClose, o
 
       <Typography sx={{ px: 3, pb: 1, fontSize: 10, fontWeight: 700, letterSpacing: 1.3, color: '#bfdbfe' }}>WORKSPACE</Typography>
       <List sx={{ px: 1.5 }}>
-        {items.map((it) => (
+        {navigationItems.map((it) => (
           <ListItemButton key={it.to} component={NavLink} to={it.to} end={it.to === '/'} onClick={onClose} sx={navSx}>
             <ListItemIcon>{it.icon}</ListItemIcon>
             <ListItemText primary={it.label} />

@@ -15,10 +15,13 @@ import (
 )
 
 type createUserRequest struct {
-	FullName string `json:"full_name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+	FullName        string `json:"full_name"`
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
+	Role            string `json:"role"`
+	EmployeeNumber  string `json:"employee_number"`
+	PhoneNumber     string `json:"phone_number"`
 }
 
 type updateUserRoleRequest struct {
@@ -26,16 +29,18 @@ type updateUserRoleRequest struct {
 }
 
 type managedUser struct {
-	ID        string    `json:"id"`
-	FullName  string    `json:"full_name"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	FullName       string    `json:"full_name"`
+	Email          string    `json:"email"`
+	Role           string    `json:"role"`
+	EmployeeNumber string    `json:"employee_number"`
+	PhoneNumber    string    `json:"phone_number"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 func (app *application) listUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := app.db.Query(r.Context(), `
-		SELECT id::text, full_name, email, role, created_at
+		SELECT id::text, full_name, email, role, COALESCE(employee_number, ''), COALESCE(phone_number, ''), created_at
 		FROM users
 		ORDER BY created_at DESC, lower(email)
 	`)
@@ -48,7 +53,7 @@ func (app *application) listUsers(w http.ResponseWriter, r *http.Request) {
 	users := make([]managedUser, 0)
 	for rows.Next() {
 		var user managedUser
-		if err := rows.Scan(&user.ID, &user.FullName, &user.Email, &user.Role, &user.CreatedAt); err != nil {
+		if err := rows.Scan(&user.ID, &user.FullName, &user.Email, &user.Role, &user.EmployeeNumber, &user.PhoneNumber, &user.CreatedAt); err != nil {
 			http.Error(w, "Could not load users", http.StatusInternalServerError)
 			return
 		}
@@ -72,8 +77,14 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 	input.FullName = strings.TrimSpace(input.FullName)
 	input.Email = strings.TrimSpace(input.Email)
 	input.Role = strings.TrimSpace(input.Role)
-	if input.FullName == "" || input.Email == "" || input.Password == "" {
-		http.Error(w, "Name, email, and initial password are required", http.StatusBadRequest)
+	input.EmployeeNumber = strings.TrimSpace(input.EmployeeNumber)
+	input.PhoneNumber = strings.TrimSpace(input.PhoneNumber)
+	if input.FullName == "" || input.Email == "" || input.Password == "" || input.ConfirmPassword == "" {
+		http.Error(w, "Name, email, password, and password confirmation are required", http.StatusBadRequest)
+		return
+	}
+	if input.Password != input.ConfirmPassword {
+		http.Error(w, "Passwords do not match", http.StatusBadRequest)
 		return
 	}
 	parsedEmail, err := mail.ParseAddress(input.Email)
@@ -98,16 +109,16 @@ func (app *application) createUser(w http.ResponseWriter, r *http.Request) {
 
 	var user managedUser
 	err = app.db.QueryRow(r.Context(), `
-		INSERT INTO users (full_name, email, password_hash, role)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id::text, full_name, email, role, created_at
-	`, input.FullName, input.Email, string(passwordHash), input.Role).Scan(
-		&user.ID, &user.FullName, &user.Email, &user.Role, &user.CreatedAt,
+		INSERT INTO users (full_name, email, password_hash, role, employee_number, phone_number)
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''))
+		RETURNING id::text, full_name, email, role, COALESCE(employee_number, ''), COALESCE(phone_number, ''), created_at
+	`, input.FullName, input.Email, string(passwordHash), input.Role, input.EmployeeNumber, input.PhoneNumber).Scan(
+		&user.ID, &user.FullName, &user.Email, &user.Role, &user.EmployeeNumber, &user.PhoneNumber, &user.CreatedAt,
 	)
 	if err != nil {
 		var postgresError *pgconn.PgError
 		if errors.As(err, &postgresError) && postgresError.Code == "23505" {
-			http.Error(w, "A user with that email address already exists", http.StatusConflict)
+			http.Error(w, "A user with that email address or employee number already exists", http.StatusConflict)
 			return
 		}
 		http.Error(w, "Could not create user", http.StatusInternalServerError)

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Alert, AppBar, Avatar, Badge, Box, Divider, IconButton, Stack, Toolbar, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import Sidebar from './Sidebar';
 import { useAuth } from '../auth/AuthContext';
@@ -8,7 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 const titles = { '/': 'Dashboard', '/documents': 'Documents', '/review': 'Review Queue', '/ledger': 'Ledger', '/users': 'Users' };
 
 export default function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -61,27 +62,46 @@ export default function AppLayout() {
             </Box>
             <Divider orientation="vertical" flexItem sx={{ my: 1.5, display: { xs: 'none', sm: 'block' } }} />
             <Stack direction="row" spacing={{ xs: 0.75, sm: 1.25 }} alignItems="center" sx={{ pl: { xs: 0, sm: 0.75 } }}>
-              <Badge
-                overlap="circular"
-                variant="dot"
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                sx={{ '& .MuiBadge-badge': { bgcolor: '#22a06b', boxShadow: '0 0 0 2px #fff' } }}
+              <Stack
+                component={RouterLink}
+                to="/profile"
+                direction="row"
+                spacing={{ xs: 0, sm: 1 }}
+                alignItems="center"
+                aria-label="Open profile"
+                sx={{
+                  color: 'inherit',
+                  textDecoration: 'none',
+                  borderRadius: 2,
+                  p: 0.5,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
               >
-                <Avatar sx={{ width: 38, height: 38, bgcolor: 'primary.light', color: 'primary.dark', fontSize: 13, fontWeight: 700 }}>
-                  {userInitials}
-                </Avatar>
-              </Badge>
-              <Box sx={{ display: { xs: 'none', sm: 'block' }, minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-                  {userName}
-                </Typography>
-              </Box>
+                <Badge
+                  overlap="circular"
+                  variant="dot"
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  sx={{ '& .MuiBadge-badge': { bgcolor: '#22a06b', boxShadow: '0 0 0 2px #fff' } }}
+                >
+                  <Avatar sx={{ width: 38, height: 38, bgcolor: 'primary.light', color: 'primary.dark', fontSize: 13, fontWeight: 700 }}>
+                    {userInitials}
+                  </Avatar>
+                </Badge>
+                <Box sx={{ display: { xs: 'none', sm: 'block' }, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
+                    {userName}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                    Profile
+                  </Typography>
+                </Box>
+              </Stack>
             </Stack>
           </Toolbar>
         </AppBar>
         <Box sx={{ width: '100%', maxWidth: 1600, mx: 'auto', px: { xs: 2, sm: 3, lg: 4 }, py: { xs: 2.5, sm: 3.5 } }}>
           {logoutError && <Alert severity="error" sx={{ mb: 2 }}>{logoutError}</Alert>}
-          <Outlet context={{ user }} />
+          <Outlet context={{ user, updateUser }} />
         </Box>
       </Box>
     </Box>

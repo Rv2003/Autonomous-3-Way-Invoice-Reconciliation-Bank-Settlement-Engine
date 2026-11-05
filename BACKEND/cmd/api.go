@@ -45,11 +45,13 @@ func (app *application) mount() http.Handler {
 		r.Use(app.authenticate)
 		r.Get("/auth/me", app.me)
 		r.Get("/auth/profile", app.me)
-		r.Get("/users", app.listUsers)
+		r.Patch("/auth/profile", app.updateProfile)
+		r.Patch("/auth/password", app.changePassword)
 	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(app.requireRole("administrator"))
+		r.Get("/users", app.listUsers)
 		r.Post("/users", app.createUser)
 		r.Patch("/users/{id}/role", app.updateUserRole)
 	})
