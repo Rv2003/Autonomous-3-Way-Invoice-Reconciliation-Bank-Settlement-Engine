@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, Typography,
 } from '@mui/material';
@@ -7,9 +7,11 @@ import errorIcon from '../assets/auth/error.svg';
 import checkIcon from '../assets/auth/check.svg';
 import AuthLayout, { AuthField } from '../layout/AuthLayout';
 import { API_BASE_URL } from '../components/api/documents';
+import { useAuth } from '../auth/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,7 +27,12 @@ export default function Login() {
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        credentials: 'include',
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          remember_me: rememberMe,
+        }),
       });
 
       if (!response.ok) {
@@ -36,17 +43,12 @@ export default function Login() {
         return;
       }
 
-      const data = await response.json();
-      if (!data.token) {
-        throw new Error('The server response did not include an authentication token.');
-      }
-
-      const storage = rememberMe ? localStorage : sessionStorage;
-      storage.setItem('token', data.token);
-      (rememberMe ? sessionStorage : localStorage).removeItem('token');
+      await login();
       navigate('/');
     } catch (requestError) {
-      setError(requestError.message || 'Could not connect to the server. Please try again.');
+      setError(requestError instanceof TypeError
+        ? `Cannot reach the API at ${API_BASE_URL}. Start the backend and check VITE_API_BASE_URL.`
+        : requestError.message || 'Could not connect to the server. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,10 +143,7 @@ export default function Login() {
           </Stack>
         </Paper>
         <Typography sx={{ textAlign: 'center', fontSize: { xs: 12, md: 9, lg: 12 }, color: '#637381', lineHeight: 1.6 }}>
-          Need access? Ask your workspace administrator to add you.{' '}
-          <Link component={RouterLink} to="/register" underline="none" sx={{ color: '#2563eb', fontWeight: 500 }}>
-            Create account
-          </Link>
+          Need access? Ask your workspace administrator to add you.
         </Typography>
       </Stack>
     </AuthLayout>
