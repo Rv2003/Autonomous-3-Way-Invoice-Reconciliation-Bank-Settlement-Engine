@@ -6,7 +6,10 @@ import (
 	"time"
 
 	repo "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/sqlc"
+
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/email"
 	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/pdf"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
@@ -46,10 +49,17 @@ func (app *application) mount() http.Handler {
 	//http.ListenAndServe(":3333", r)
 	pdfService := pdf.NewService(repo.New(app.db))
 	pdfHandler := pdf.NewHandler(pdfService)
+	emailService := email.NewService(repo.New(app.db))
+	emailHandler := email.NewHandler(emailService)
 	r.Get("/pdf", pdfHandler.ListPdf)
-    r.Post("/pdf/submit",pdfHandler.CreatePdf)
-   
+	r.Post("/pdf/submit", pdfHandler.CreatePdf)
 
+	r.Post("/email/mailboxes", emailHandler.CreateMailbox)
+	r.Post("/email/webhooks/gmail", emailHandler.GmailWebhook)
+	r.Get("/email/ingestion-events", emailHandler.ListIngestionEvents)
+	r.Post("/email/ingestion-events/{id}/process", emailHandler.ProcessIngestionEvent)
+	r.Post("/email/ingestion-events/{id}/complete", emailHandler.CompleteIngestionEvent)
+	r.Post("/email/ingestion-events/{id}/fail", emailHandler.FailIngestionEvent)
 
 	return r
 }

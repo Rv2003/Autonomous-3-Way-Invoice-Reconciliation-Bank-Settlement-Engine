@@ -8,6 +8,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type EmailIngestionEvent struct {
+	ID              pgtype.UUID        `json:"id"`
+	MailboxID       pgtype.UUID        `json:"mailbox_id"`
+	PubsubMessageID string             `json:"pubsub_message_id"`
+	HistoryID       string             `json:"history_id"`
+	Status          string             `json:"status"`
+	Attempts        int32              `json:"attempts"`
+	LastError       pgtype.Text        `json:"last_error"`
+	ReceivedAt      pgtype.Timestamptz `json:"received_at"`
+	ProcessedAt     pgtype.Timestamptz `json:"processed_at"`
+}
+
+type EmailMailbox struct {
+	ID             pgtype.UUID        `json:"id"`
+	Provider       string             `json:"provider"`
+	EmailAddress   string             `json:"email_address"`
+	HistoryID      pgtype.Text        `json:"history_id"`
+	WatchExpiresAt pgtype.Timestamptz `json:"watch_expires_at"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Pdf struct {
 	ID            pgtype.UUID        `json:"id"`
 	OriginalName  string             `json:"original_name"`

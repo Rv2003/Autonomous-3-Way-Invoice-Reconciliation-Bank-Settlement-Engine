@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +12,8 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const (
@@ -58,4 +61,48 @@ func main() {
 
 	fmt.Println("Gmail API connection successful.")
 	fmt.Printf("Authenticated account: %s\n", profile.EmailAddress)
+
+	// PostgreSQL lookup
+	dbString := os.Getenv("GOOSE_DBSTRING")
+	if dbString == "" {
+		log.Fatal("GOOSE_DBSTRING is not set")
+	}
+
+	db, err := sql.Open("pgx", dbString)
+	if err != nil {
+		log.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+
+	var (
+		mailboxID string
+		email     string
+		status    string
+	)
+
+	err = db.QueryRowContext(
+		ctx,
+		`SELECT id, email_address, status
+		 FROM email_mailboxes
+		 WHERE provider = 'gmail'
+		   AND email_address = $1`,
+		profile.EmailAddress,
+	).Scan(&mailboxID, &email, &status)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Fatalf("Gmail account is not registered in email_mailboxes: %s", profile.EmailAddress)
+		}
+
+		log.Fatalf("failed to query email mailbox: %v", err)
+	}
+
+	fmt.Println("Mailbox found in PostgreSQL.")
+	fmt.Printf("Mailbox ID: %s\n", mailboxID)
+	fmt.Printf("Email address: %s\n", email)
+	fmt.Printf("Status: %s\n", status)
 }
