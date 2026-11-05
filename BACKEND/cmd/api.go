@@ -83,7 +83,9 @@ func (app *application) mount() http.Handler {
 	emailService := email.NewService(repo.New(app.db))
 	emailHandler := email.NewHandler(emailService)
 	r.Get("/pdf", pdfHandler.ListPdf)
+	r.Get("/pdf/{id}/file", pdfHandler.ViewPdf)
 	r.Post("/pdf/submit", pdfHandler.CreatePdf)
+	r.With(app.authenticate).Delete("/pdf/{id}", pdfHandler.DeletePdf)
 
 	return r
 }
@@ -101,7 +103,7 @@ func localFrontendCORS(next http.Handler) http.Handler {
 			}
 
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Add("Vary", "Origin")

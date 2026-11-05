@@ -25,6 +25,10 @@ VALUES (
 )
 RETURNING *;
 
+-- name: DeletePdf :one
+DELETE FROM pdfs
+WHERE id::text = $1
+RETURNING stored_path;
 
 -- name: UpdatePdfStatus :exec
 UPDATE pdfs

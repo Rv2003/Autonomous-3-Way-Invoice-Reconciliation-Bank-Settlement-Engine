@@ -155,6 +155,16 @@ func (q *Queries) GetEmailMailboxByEmail(ctx context.Context, arg GetEmailMailbo
 		&i.UpdatedAt,
 	)
 	return i, err
+const deletePdf = `-- name: DeletePdf :one
+DELETE FROM pdfs
+WHERE id::text = $1
+RETURNING stored_path
+`
+
+func (q *Queries) DeletePdf(ctx context.Context, id string) (string, error) {
+	var storedPath string
+	err := q.db.QueryRow(ctx, deletePdf, id).Scan(&storedPath)
+	return storedPath, err
 }
 
 const getPdf = `-- name: GetPdf :one

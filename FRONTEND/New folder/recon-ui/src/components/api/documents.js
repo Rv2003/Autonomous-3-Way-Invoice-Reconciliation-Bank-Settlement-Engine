@@ -14,6 +14,10 @@ export async function fetchDocuments() {
   return Array.isArray(documents) ? documents : [];
 }
 
+export function getDocumentUrl(id) {
+  return `${API_BASE_URL}/pdf/${encodeURIComponent(id)}/file`;
+}
+
 export async function uploadPdf(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -23,6 +27,14 @@ export async function uploadPdf(file) {
   });
   await ensureOk(response, 'Uploading PDF');
   return response.json();
+}
+
+export async function deleteDocument(id) {
+  const response = await fetch(`${API_BASE_URL}/pdf/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  await ensureOk(response, 'Deleting document');
 }
 
 export function displayDocumentStatus(status) {
