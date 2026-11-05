@@ -8,7 +8,9 @@ import (
 	"time"
 
 	repo "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/sqlc"
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
 	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/pdf"
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/telegram"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,14 +35,12 @@ func (app *application) mount() http.Handler {
 
 	// A good base middleware stack
 	r.Use(middleware.RequestID)
-	r.Use(middleware.ClientIPFromRemoteAddr) // pick one ClientIPFrom* based on your infra, see below
+	r.Use(middleware.ClientIPFromRemoteAddr)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(localFrontendCORS)
 
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
+	// Set a timeout value on the request context (ctx)
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	// Public route: users can log in without an existing token.
@@ -74,11 +74,26 @@ func (app *application) mount() http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hi"))
 	})
-	//http.ListenAndServe(":3333", r)
+
 	pdfService := pdf.NewService(repo.New(app.db))
 	pdfHandler := pdf.NewHandler(pdfService)
 	r.Get("/pdf", pdfHandler.ListPdf)
 	r.Post("/pdf/submit", pdfHandler.CreatePdf)
+
+	// Telegram Intake Webhook Handlers
+	botToken := env.GetString("TELEGRAM_BOT_TOKEN", "")
+	tgClient := telegram.NewClient(botToken)
+	tgHandler := &telegram.Handler{
+		BotToken:   botToken,
+		UploadDir:  env.GetString("UPLOAD_DIR", "uploads"),
+		Client:     tgClient,
+		Store:      telegram.NewPgStore(app.db),
+		PdfService: pdfService,
+	}
+
+	r.Post("/webhooks/telegram", tgHandler.Receive)
+	r.Post("/webhooks/telegram/", tgHandler.Receive)
+	r.Get("/telegram/feed", tgHandler.GetFeed)
 
 	return r
 }
@@ -124,5 +139,4 @@ func (app *application) run(h http.Handler) error {
 	}
 	log.Printf("Server has started %s", app.config.addr)
 	return srv.ListenAndServe()
-
 }

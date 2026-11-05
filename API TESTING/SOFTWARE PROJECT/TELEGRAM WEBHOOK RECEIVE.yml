@@ -1,0 +1,40 @@
+info:
+  name: TELEGRAM WEBHOOK RECEIVE
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: http://localhost:8080/webhooks/telegram
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    data: |
+      {
+        "update_id": 9991234,
+        "message": {
+          "message_id": 4821,
+          "from": {
+            "id": 123456789,
+            "first_name": "Keells",
+            "last_name": "Supplier",
+            "username": "keells_supplier"
+          },
+          "date": 1730820000,
+          "document": {
+            "file_name": "Invoice_Keells_9921.pdf",
+            "mime_type": "application/pdf",
+            "file_id": "mock-file-12345",
+            "file_size": 1048576
+          }
+        }
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
