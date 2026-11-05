@@ -20,7 +20,7 @@ export const statusColors = {
   Disabled: ['#eceff3', '#5f6b7a'],
 };
 
-export const sourceColors = { WhatsApp: '#25d366', Gmail: '#e53935', 'Manual upload': '#2563eb' };
+export const sourceColors = { WhatsApp: '#25d366', Telegram: '#0088cc', Gmail: '#e53935', 'Manual upload': '#2563eb' };
 
 export default createTheme({
   palette: {

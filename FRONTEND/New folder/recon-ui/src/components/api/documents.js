@@ -25,7 +25,18 @@ export async function uploadPdf(file) {
   return response.json();
 }
 
+export async function fetchTelegramFeed() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/telegram/feed`);
+    if (!response.ok) return [];
+    const items = await response.json();
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
 export function displayDocumentStatus(status) {
-  const labels = { uploaded: 'Uploaded', processing: 'Processing', done: 'Processed', failed: 'Failed' };
+  const labels = { uploaded: 'Uploaded', processing: 'Processing', done: 'Processed', failed: 'Failed', received: 'Received' };
   return labels[status?.toLowerCase()] ?? status ?? 'Unknown';
 }
