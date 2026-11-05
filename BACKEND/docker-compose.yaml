@@ -32,7 +32,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./internal/adapters/postgresql/init/00001_create_pdfs.sql:/docker-entrypoint-initdb.d/00001_create_pdfs.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s

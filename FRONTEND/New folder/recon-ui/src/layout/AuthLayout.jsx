@@ -13,7 +13,9 @@ const documents = [
   { icon: bankTransferIcon, name: 'TRX-20261025', type: 'Bank transfer' },
 ];
 
-export function AuthField({ label, type = 'text', placeholder, error = false, autoComplete }) {
+export function AuthField({
+  label, type = 'text', placeholder, error = false, autoComplete, value, onChange,
+}) {
   const [visible, setVisible] = useState(false);
   const isPassword = type === 'password';
 
@@ -26,6 +28,8 @@ export function AuthField({ label, type = 'text', placeholder, error = false, au
         placeholder={placeholder}
         error={error}
         autoComplete={autoComplete}
+        value={value}
+        onChange={onChange}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">

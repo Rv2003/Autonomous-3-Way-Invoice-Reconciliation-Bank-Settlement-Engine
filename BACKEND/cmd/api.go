@@ -95,7 +95,7 @@ func localFrontendCORS(next http.Handler) http.Handler {
 				return
 			}
 
-			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5175")
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			w.Header().Add("Vary", "Origin")

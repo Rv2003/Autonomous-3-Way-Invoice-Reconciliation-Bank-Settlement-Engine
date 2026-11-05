@@ -5,8 +5,10 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/migrations"
 	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -30,8 +32,14 @@ func main() {
 		logger.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-
 	logger.Info("connected to database")
+
+	migrationDB := stdlib.OpenDBFromPool(pool)
+	defer migrationDB.Close()
+	if err := migrations.Up(ctx, migrationDB); err != nil {
+		logger.Error("failed to apply database migrations", "error", err)
+		os.Exit(1)
+	}
 
 	api := application{
 		config: cfg,

@@ -16,7 +16,7 @@ import DataTable from '../components/DataTable';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
 import { whatsappFeed, gmailFeed } from '../data/mock';
-import { displayDocumentStatus, fetchDocuments } from '../api/documents';
+import { displayDocumentStatus, fetchDocuments } from '../components/api/documents';
 
 const types = ['Auto-detect', 'Supplier invoice', 'Purchase order', 'Bank transfer'];
 

@@ -1,18 +1,55 @@
 import { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, Typography,
 } from '@mui/material';
 import errorIcon from '../assets/auth/error.svg';
 import checkIcon from '../assets/auth/check.svg';
 import AuthLayout, { AuthField } from '../layout/AuthLayout';
+import { API_BASE_URL } from '../components/api/documents';
 
 export default function Login() {
-  const [hasError, setHasError] = useState(false);
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setHasError(true);
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+
+      if (!response.ok) {
+        const detail = (await response.text()).trim();
+        setError(response.status === 401
+          ? 'Incorrect email or password. Check your details and try again.'
+          : detail || `Sign in failed (${response.status}). Please try again.`);
+        return;
+      }
+
+      const data = await response.json();
+      if (!data.token) {
+        throw new Error('The server response did not include an authentication token.');
+      }
+
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem('token', data.token);
+      (rememberMe ? sessionStorage : localStorage).removeItem('token');
+      navigate('/');
+    } catch (requestError) {
+      setError(requestError.message || 'Could not connect to the server. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -38,7 +75,7 @@ export default function Login() {
               </Typography>
             </Box>
 
-            {hasError && (
+            {error && (
               <Alert
                 icon={<Box component="img" src={errorIcon} alt="" sx={{ width: 20, height: 20 }} />}
                 sx={{
@@ -52,18 +89,34 @@ export default function Login() {
                   '& .MuiAlert-message': { p: 0, fontSize: { xs: 14, md: 10, lg: 14 }, lineHeight: { xs: '20px', md: '14px', lg: '20px' } },
                 }}
               >
-                Incorrect email or password. Check your details and try again.
+                {error}
               </Alert>
             )}
 
             <Stack spacing={{ xs: 2.5, md: 1.75, lg: 2.5 }}>
-              <AuthField label="Email" placeholder="name@company.lk" type="email" autoComplete="email" error={hasError} />
-              <AuthField label="Password" placeholder="Enter your password" type="password" autoComplete="current-password" error={hasError} />
+              <AuthField
+                label="Email"
+                placeholder="name@company.lk"
+                type="email"
+                autoComplete="email"
+                error={Boolean(error)}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              <AuthField
+                label="Password"
+                placeholder="Enter your password"
+                type="password"
+                autoComplete="current-password"
+                error={Boolean(error)}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
             </Stack>
 
             <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
               <FormControlLabel
-                control={<Checkbox defaultChecked size="small" icon={<Box sx={{ width: 18, height: 18, border: '1px solid #9aa5b1', borderRadius: '3px' }} />} checkedIcon={<Box component="img" src={checkIcon} alt="" sx={{ width: 18, height: 18 }} />} />}
+                control={<Checkbox checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} size="small" icon={<Box sx={{ width: 18, height: 18, border: '1px solid #9aa5b1', borderRadius: '3px' }} />} checkedIcon={<Box component="img" src={checkIcon} alt="" sx={{ width: 18, height: 18 }} />} />}
                 label="Keep me signed in"
                 sx={{
                   m: 0,
@@ -80,9 +133,10 @@ export default function Login() {
               type="submit"
               variant="contained"
               fullWidth
+              disabled={isSubmitting}
               sx={{ minHeight: { xs: 46, md: 33, lg: 46 }, bgcolor: '#2563eb', borderRadius: 1.5, fontSize: { xs: 14, md: 10, lg: 14 }, '&:hover': { bgcolor: '#1d4ed8' } }}
             >
-              Sign in
+              {isSubmitting ? 'Signing in…' : 'Sign in'}
             </Button>
           </Stack>
         </Paper>
