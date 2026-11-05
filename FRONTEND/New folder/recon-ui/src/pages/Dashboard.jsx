@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Alert, Avatar, Box, Button, Card, CardContent, Chip, Divider, Link as MuiLink, List, ListItem,
@@ -11,12 +11,12 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
 import StatusChip from '../components/StatusChip';
-import SourceCell from '../components/SourceCell';
+import SourceCell, { TelegramLogo } from '../components/SourceCell';
 import DataTable from '../components/DataTable';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
 import { whatsappFeed, gmailFeed } from '../data/mock';
-import { displayDocumentStatus, fetchDocuments } from '../components/api/documents';
+import { displayDocumentStatus, fetchDocuments, fetchTelegramFeed } from '../components/api/documents';
 
 const types = ['Auto-detect', 'Supplier invoice', 'Purchase order', 'Bank transfer'];
 
@@ -37,7 +37,7 @@ function Feed({ items, color, bg }) {
   return (
     <List disablePadding>
       {items.map((f, i) => (
-        <Box key={f.name}>
+        <Box key={f.name + i}>
           {i > 0 && <Divider component="li" />}
           <ListItem disableGutters secondaryAction={<StatusChip status={f.status} />}>
             <ListItemAvatar><Avatar sx={{ bgcolor: bg, color, width: 36, height: 36 }}><DescriptionIcon fontSize="small" /></Avatar></ListItemAvatar>
@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [documents, setDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
   const [error, setError] = useState('');
+  const [tgFeed, setTgFeed] = useState([]);
   const fileInput = useRef(null);
   const uploadQueue = usePdfUploadQueue();
 
@@ -69,9 +70,21 @@ export default function Dashboard() {
     }
   }, []);
 
+  const loadTgFeed = useCallback(async () => {
+    const data = await fetchTelegramFeed();
+    setTgFeed(data);
+  }, []);
+
   useEffect(() => {
     loadDocuments();
-  }, [loadDocuments]);
+    loadTgFeed();
+    // Live polling every 4 seconds to catch real-time Telegram arrivals
+    const timer = setInterval(() => {
+      loadDocuments();
+      loadTgFeed();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [loadDocuments, loadTgFeed]);
 
   const handleUploadQueue = async () => {
     await uploadQueue.processQueue();
@@ -83,14 +96,42 @@ export default function Dashboard() {
     await loadDocuments();
   };
 
-  const recentDocuments = documents.map((document) => ({
-    id: document.id,
-    name: document.original_name,
-    source: 'Manual upload',
-    type: 'PDF document',
-    company: '—',
-    status: displayDocumentStatus(document.status),
-  }));
+  const displayTgItems = useMemo(() => {
+    if (tgFeed && tgFeed.length > 0) {
+      return tgFeed.map((item) => {
+        const date = item.received_at ? new Date(item.received_at) : null;
+        const timeStr = date && !isNaN(date.getTime())
+          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Just now';
+        return {
+          name: item.original_filename || `Document_${item.id}.pdf`,
+          meta: `${item.sender || 'Telegram User'} · ${timeStr}`,
+          status: displayDocumentStatus(item.status),
+        };
+      });
+    }
+    return [];
+  }, [tgFeed]);
+
+  const recentDocuments = documents.map((document) => {
+    const isTelegram =
+      document.source === 'Telegram' ||
+      document.source === 'Documents via Telegram' ||
+      document.source === 'telegram' ||
+      (document.original_name && document.original_name.toLowerCase().includes('telegram'));
+    const cleanName = isTelegram
+      ? document.original_name.replace(/^\[telegram\]\s*/i, '')
+      : document.original_name;
+
+    return {
+      id: document.id,
+      name: cleanName,
+      source: isTelegram ? 'Documents via Telegram' : (document.source || 'Manual upload'),
+      type: 'PDF document',
+      company: isTelegram ? (document.sender || 'Telegram User') : '—',
+      status: displayDocumentStatus(document.status),
+    };
+  });
 
   return (
     <>
@@ -107,12 +148,12 @@ export default function Dashboard() {
       />
       <PageHeader
         title="Document Ingestion"
-        subtitle="Upload files manually or let WhatsApp and Gmail feed documents into the reconciliation pipeline."
-        actions={<Button variant="outlined" onClick={loadDocuments} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
+        subtitle="Upload files manually or let Telegram and Gmail feed documents into the reconciliation pipeline."
+        actions={<Button variant="outlined" onClick={() => { loadDocuments(); loadTgFeed(); }} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(4,1fr)' }, mb: 3 }}>
-        <StatCard label="Documents today" value="128" sub="+12% vs yesterday" />
+        <StatCard label="Documents today" value={128 + tgFeed.length} sub="+14% vs yesterday" />
         <StatCard label="In pipeline" value="6" sub="Processing now" />
         <StatCard label="Needs review" value="14" sub="In exceptions queue" color="warning.main" />
         <StatCard label="Failed extraction" value="3" sub="Check source files" color="error.main" />
@@ -141,38 +182,59 @@ export default function Dashboard() {
             onClearCompleted={uploadQueue.clearCompleted}
             onClearQueue={uploadQueue.clearQueue}
           />
-          <Typography variant="body2" fontWeight={500} sx={{ mt: 2, mb: 1 }}>Document type</Typography>
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            {types.map((t) => (
-              <Chip key={t} label={t} size="small" clickable onClick={() => setType(t)}
-                color={type === t ? 'primary' : 'default'} variant={type === t ? 'filled' : 'outlined'} />
-            ))}
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            <Button fullWidth variant="contained" size="small" onClick={handleUploadQueue} disabled={uploadQueue.queue.length === 0 || uploadQueue.processing}>Upload all ({uploadQueue.queue.length})</Button>
+            <Button variant="outlined" size="small" onClick={uploadQueue.clearQueue} disabled={uploadQueue.queue.length === 0 || uploadQueue.processing}>Clear</Button>
           </Stack>
           <Typography variant="body2" fontWeight={500} sx={{ mt: 2 }}>Recent upload statuses</Typography>
           <Box sx={{ mt: 1 }}>
             {loadingDocuments && <Typography variant="caption" color="text.secondary">Loading documents…</Typography>}
-            {!loadingDocuments && recentDocuments.slice(0, 3).map((document) => (
+            {!loadingDocuments && recentDocuments.filter((d) => d.source === 'Manual upload').slice(0, 3).map((document) => (
               <Stack key={document.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5, gap: 1 }}>
                 <Typography variant="caption" noWrap>{document.name}</Typography>
                 <StatusChip status={document.status} />
               </Stack>
             ))}
-            {!loadingDocuments && recentDocuments.length === 0 && !error && (
+            {!loadingDocuments && recentDocuments.filter((d) => d.source === 'Manual upload').length === 0 && !error && (
               <Typography variant="caption" color="text.secondary">No uploaded documents yet.</Typography>
             )}
           </Box>
         </CardContent></Card>
 
+        {/* Live Telegram Intake Card */}
         <Card><CardContent>
-          <PanelHeader icon={<ChatIcon />} color="#00897b" bg="#e0f2f1" title="Live WhatsApp Extraction" sub="Incoming documents via webhook" tag={<Chip size="small" label="● Live" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }} />} />
+          <PanelHeader
+            icon={<TelegramLogo size={24} />}
+            color="#0088cc"
+            bg="#e1f5fe"
+            title="Live Telegram Intake"
+            sub="Incoming documents via Telegram Bot"
+            tag={<Chip size="small" label="● Live" sx={{ bgcolor: '#e1f5fe', color: '#0088cc', fontWeight: 600 }} />}
+          />
           <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Business number</Typography><Typography variant="caption" fontWeight={500}>+94 77 ••• 4567</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Webhook</Typography><Typography variant="caption" fontWeight={500}>Active · 38 today</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between">
+              <Typography variant="caption" color="text.secondary">Bot Username</Typography>
+              <Typography variant="caption" fontWeight={600} color="#0088cc">@ifs_recon_invoice_bot</Typography>
+            </Stack>
+            <Stack direction="row" justifyContent="space-between">
+              <Typography variant="caption" color="text.secondary">Webhook Status</Typography>
+              <Typography variant="caption" fontWeight={500}>{tgFeed.length > 0 ? `Active · ${tgFeed.length} received` : 'Active · Listening'}</Typography>
+            </Stack>
           </Box>
-          <Feed items={whatsappFeed} color="#1976d2" bg="#e0f2f1" />
-          <Button fullWidth variant="outlined" sx={{ mt: 1.5 }}>View all messages</Button>
+          {displayTgItems.length > 0 ? (
+            <Feed items={displayTgItems} color="#0088cc" bg="#e1f5fe" />
+          ) : (
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">No incoming documents yet</Typography>
+              <Typography variant="caption" color="text.secondary">Send a PDF to @ifs_recon_invoice_bot to see it here</Typography>
+            </Box>
+          )}
+          <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+            <Button fullWidth variant="outlined" size="small" onClick={loadTgFeed}>Refresh Feed</Button>
+          </Stack>
         </CardContent></Card>
 
+        {/* Gmail Extraction Card */}
         <Card><CardContent>
           <PanelHeader icon={<EmailIcon />} color="#e53935" bg="#ffebee" title="Gmail Extraction" sub="Attachments from the inbox" tag={<Chip size="small" label="Synced" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }} />} />
           <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>

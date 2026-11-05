@@ -36,6 +36,10 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(localFrontendCORS)
+
+	// Set a timeout value on the request context (ctx), that will signal
+	// through ctx.Done() that the request has timed out and further
+	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Post("/auth/login", app.login)
@@ -80,7 +84,6 @@ func (app *application) mount() http.Handler {
 	r.Get("/pdf", pdfHandler.ListPdf)
 	r.Get("/pdf/{id}/file", pdfHandler.ViewPdf)
 	r.Post("/pdf/submit", pdfHandler.CreatePdf)
-	r.With(app.authenticate).Delete("/pdf/{id}", pdfHandler.DeletePdf)
 
 	return r
 }

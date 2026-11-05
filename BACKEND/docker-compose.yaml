@@ -8,9 +8,11 @@ services:
     volumes:
       - pdf_uploads:/app/uploads
     environment:
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       GOOSE_DBSTRING: "host=db user=invoice_app password=${POSTGRES_PASSWORD:-password123} dbname=invoice_reconciliation sslmode=disable"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      UPLOAD_DIR: uploads
     depends_on:
       db:
         condition: service_healthy
@@ -18,11 +20,11 @@ services:
     develop:
       watch:
         - action: rebuild
-          path: .
-          ignore:
-            - .git/
-            - uploads/
-            - "*.md"
+        path: .
+        ignore:
+          - .git/
+          - uploads/
+          - "*.md"
   db:
     image: postgres:17-alpine
     environment:
@@ -33,6 +35,9 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./internal/adapters/postgresql/init/00001_create_pdfs.sql:/docker-entrypoint-initdb.d/00001_create_pdfs.sql:ro
+      - ./internal/adapters/postgresql/init/00002_create_inbound_documents.sql:/docker-entrypoint-initdb.d/00002_create_inbound_documents.sql:ro
+      - ./internal/adapters/postgresql/init/00003_create_users.sql:/docker-entrypoint-initdb.d/00003_create_users.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
