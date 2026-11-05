@@ -1,5 +1,4 @@
 
-FROM golang:1.27.1-alpine AS build
 # Stage 1: Build the Go application
 FROM golang:1.27.1-bookworm AS build
 
@@ -37,10 +36,6 @@ FROM alpine:3.22
 RUN addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
-
-# Copy both executables
-COPY --from=build /out/api ./api
-COPY --from=build /out/migrate ./migrate
 
 # Copy the compiled executable from Stage 1
 COPY --from=build /tmp/backend-api ./api
