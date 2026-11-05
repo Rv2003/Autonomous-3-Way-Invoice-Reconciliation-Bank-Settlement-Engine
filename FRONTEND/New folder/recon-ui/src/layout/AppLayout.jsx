@@ -4,15 +4,19 @@ import { AppBar, Avatar, Badge, Box, Divider, IconButton, Stack, Toolbar, Typogr
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import MenuIcon from '@mui/icons-material/Menu';
 import Sidebar from './Sidebar';
+import { useAuth } from '../auth/AuthContext';
 
 const titles = { '/': 'Dashboard', '/documents': 'Documents', '/review': 'Review Queue', '/ledger': 'Ledger', '/users': 'Users' };
 
 export default function AppLayout() {
+  const { user } = useAuth();
   const { pathname } = useLocation();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const title = titles[pathname] ?? (pathname.startsWith('/review') ? 'Review Queue' : 'Invoice Recon');
+  const userName = user?.full_name || 'User';
+  const userInitials = userName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -52,15 +56,15 @@ export default function AppLayout() {
                 sx={{ '& .MuiBadge-badge': { bgcolor: '#22a06b', boxShadow: '0 0 0 2px #fff' } }}
               >
                 <Avatar sx={{ width: 38, height: 38, bgcolor: 'primary.light', color: 'primary.dark', fontSize: 13, fontWeight: 700 }}>
-                  AD
+                  {userInitials}
                 </Avatar>
               </Badge>
               <Box sx={{ display: { xs: 'none', sm: 'block' }, minWidth: 0 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-                  Admin User
+                  {userName}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                  Workspace admin
+                  {user?.role || 'Workspace user'}
                 </Typography>
               </Box>
               <KeyboardArrowDownIcon sx={{ display: { xs: 'none', sm: 'block' }, color: 'text.secondary', fontSize: 20 }} />

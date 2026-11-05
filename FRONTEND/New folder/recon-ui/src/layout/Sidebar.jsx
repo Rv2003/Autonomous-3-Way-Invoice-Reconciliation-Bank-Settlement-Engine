@@ -5,6 +5,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import PersonIcon from '@mui/icons-material/Person';
+import { useAuth } from '../auth/AuthContext';
 
 export const DRAWER_WIDTH = 248;
 
@@ -36,6 +37,10 @@ const navSx = {
 };
 
 export default function Sidebar({ variant = 'permanent', open = true, onClose }) {
+  const { user } = useAuth();
+  const userName = user?.full_name || 'User';
+  const userInitials = userName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+
   return (
     <Drawer
       variant={variant}
@@ -76,10 +81,10 @@ export default function Sidebar({ variant = 'permanent', open = true, onClose })
 
       <Box sx={{ flexGrow: 1 }} />
       <Stack direction="row" spacing={1.25} alignItems="center" sx={{ m: 1.5, p: 1.5, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <Avatar sx={{ bgcolor: '#2563eb', width: 34, height: 34, fontSize: 12, fontWeight: 600 }}>AD</Avatar>
+        <Avatar sx={{ bgcolor: '#2563eb', width: 34, height: 34, fontSize: 12, fontWeight: 600 }}>{userInitials}</Avatar>
         <Box>
-          <Typography sx={{ fontSize: 13, fontWeight: 600 }}>Admin User</Typography>
-          <Typography sx={{ fontSize: 11, color: '#bfdbfe' }}>Administrator</Typography>
+          <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{userName}</Typography>
+          <Typography sx={{ fontSize: 11, color: '#bfdbfe' }}>{user?.role || 'Workspace user'}</Typography>
         </Box>
       </Stack>
     </Drawer>

@@ -7,9 +7,11 @@ import errorIcon from '../assets/auth/error.svg';
 import checkIcon from '../assets/auth/check.svg';
 import AuthLayout, { AuthField } from '../layout/AuthLayout';
 import { API_BASE_URL } from '../components/api/documents';
+import { useAuth } from '../auth/AuthContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,14 +38,12 @@ export default function Login() {
         return;
       }
 
-      const data = await response.json();
-      if (!data.token) {
+      const { token } = await response.json();
+      if (!token) {
         throw new Error('The server response did not include an authentication token.');
       }
 
-      const storage = rememberMe ? localStorage : sessionStorage;
-      storage.setItem('token', data.token);
-      (rememberMe ? sessionStorage : localStorage).removeItem('token');
+      await login(token, rememberMe);
       navigate('/');
     } catch (requestError) {
       setError(requestError.message || 'Could not connect to the server. Please try again.');

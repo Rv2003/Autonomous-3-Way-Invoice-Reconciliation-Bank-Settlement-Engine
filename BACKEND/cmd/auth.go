@@ -167,7 +167,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 	})
 }
 
-// me returns the identity and role from the validated token.
+
 func (app *application) me(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(authUserKey).(*authClaims)
 	if !ok {
@@ -205,3 +205,5 @@ func (app *application) requireRole(roles ...string) func(http.Handler) http.Han
 		}))
 	}
 }
+
+
