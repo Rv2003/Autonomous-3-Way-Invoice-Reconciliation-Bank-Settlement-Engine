@@ -11,7 +11,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
 import StatusChip from '../components/StatusChip';
-import SourceCell from '../components/SourceCell';
+import SourceCell, { TelegramLogo } from '../components/SourceCell';
 import DataTable from '../components/DataTable';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
@@ -114,7 +114,9 @@ export default function Dashboard() {
   }, [tgFeed]);
 
   const recentDocuments = documents.map((document) => {
-    const isTelegram = document.source === 'Telegram' ||
+    const isTelegram =
+      document.source === 'Telegram' ||
+      document.source === 'Documents via Telegram' ||
       document.source === 'telegram' ||
       (document.original_name && document.original_name.toLowerCase().includes('telegram'));
     const cleanName = isTelegram
@@ -124,9 +126,9 @@ export default function Dashboard() {
     return {
       id: document.id,
       name: cleanName,
-      source: isTelegram ? 'Telegram' : (document.source || 'Manual upload'),
+      source: isTelegram ? 'Documents via Telegram' : (document.source || 'Manual upload'),
       type: 'PDF document',
-      company: '—',
+      company: isTelegram ? (document.sender || 'Telegram User') : '—',
       status: displayDocumentStatus(document.status),
     };
   });
@@ -202,7 +204,7 @@ export default function Dashboard() {
         {/* Live Telegram Intake Card */}
         <Card><CardContent>
           <PanelHeader
-            icon={<ChatIcon />}
+            icon={<TelegramLogo size={24} />}
             color="#0088cc"
             bg="#e1f5fe"
             title="Live Telegram Intake"

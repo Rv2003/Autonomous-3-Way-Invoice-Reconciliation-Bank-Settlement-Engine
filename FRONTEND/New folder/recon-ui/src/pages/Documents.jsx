@@ -10,7 +10,7 @@ import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
 import { displayDocumentStatus, fetchDocuments } from '../components/api/documents';
 
 const statuses = ['All', 'Uploaded', 'Processed', 'Processing', 'Failed'];
-const sources = ['All', 'Telegram', 'WhatsApp', 'Gmail', 'Manual upload'];
+const sources = ['All', 'Documents via Telegram', 'WhatsApp', 'Gmail', 'Manual upload'];
 
 function formatReceived(value) {
   if (!value) return '—';
@@ -72,9 +72,9 @@ export default function Documents() {
     () => documents.map((document) => ({
       id: document.id,
       name: document.original_name ? document.original_name.replace(/^\[telegram\]\s*/i, '') : '',
-      source: (document.source === 'telegram' || document.source === 'Telegram' || document.original_name?.toLowerCase().includes('telegram')) ? 'Telegram' : (document.source || 'Manual upload'),
+      source: (document.source === 'Documents via Telegram' || document.source === 'telegram' || document.source === 'Telegram' || document.original_name?.toLowerCase().includes('telegram')) ? 'Documents via Telegram' : (document.source || 'Manual upload'),
       type: 'PDF document',
-      company: '—',
+      company: document.sender || '—',
       received: formatReceived(document.uploaded_at),
       size: formatFileSize(document.size_bytes),
       status: displayDocumentStatus(document.status),

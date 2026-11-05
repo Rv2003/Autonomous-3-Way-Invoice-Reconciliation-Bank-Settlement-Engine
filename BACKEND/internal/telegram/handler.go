@@ -190,8 +190,12 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 
 	// Sync with central pdfs table if it is a PDF
 	if strings.EqualFold(ext, ".pdf") && h.PdfService != nil {
+		storedName := filename
+		if !strings.HasPrefix(strings.ToLower(filename), "[telegram]") {
+			storedName = fmt.Sprintf("[telegram] %s", filename)
+		}
 		_, err := h.PdfService.CreatePdf(ctx, pdf.CreatePdfPayload{
-			OriginalName: filename,
+			OriginalName: storedName,
 			StoredPath:   filepath.ToSlash(savedPath),
 			SizeBytes:    int64(len(data)),
 			Sha256:       shaHex,
