@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, Checkbox, FormControlLabel, Link, Paper, Stack, Typography,
 } from '@mui/material';
@@ -46,7 +46,9 @@ export default function Login() {
       await login();
       navigate('/');
     } catch (requestError) {
-      setError(requestError.message || 'Could not connect to the server. Please try again.');
+      setError(requestError instanceof TypeError
+        ? `Cannot reach the API at ${API_BASE_URL}. Start the backend and check VITE_API_BASE_URL.`
+        : requestError.message || 'Could not connect to the server. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,10 +143,7 @@ export default function Login() {
           </Stack>
         </Paper>
         <Typography sx={{ textAlign: 'center', fontSize: { xs: 12, md: 9, lg: 12 }, color: '#637381', lineHeight: 1.6 }}>
-          Need access? Ask your workspace administrator to add you.{' '}
-          <Link component={RouterLink} to="/register" underline="none" sx={{ color: '#2563eb', fontWeight: 500 }}>
-            Create account
-          </Link>
+          Need access? Ask your workspace administrator to add you.
         </Typography>
       </Stack>
     </AuthLayout>

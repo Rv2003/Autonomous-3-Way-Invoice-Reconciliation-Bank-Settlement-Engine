@@ -31,40 +31,38 @@ type dbConfig struct {
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
 
-	// A good base middleware stack
 	r.Use(middleware.RequestID)
-	r.Use(middleware.ClientIPFromRemoteAddr) // pick one ClientIPFrom* based on your infra, see below
+	r.Use(middleware.ClientIPFromRemoteAddr)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(localFrontendCORS)
-
-	// Set a timeout value on the request context (ctx), that will signal
-	// through ctx.Done() that the request has timed out and further
-	// processing should be stopped.
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	// Public route: users can log in without an existing token.
 	r.Post("/auth/login", app.login)
 	r.Post("/auth/logout", app.logout)
 
-	// Protected routes: a valid JWT is required.
 	r.Group(func(r chi.Router) {
 		r.Use(app.authenticate)
 		r.Get("/auth/me", app.me)
 		r.Get("/auth/profile", app.me)
+		r.Patch("/auth/profile", app.updateProfile)
+		r.Patch("/auth/password", app.changePassword)
 	})
 
-	// RBAC test routes
 	r.Group(func(r chi.Router) {
-		// Only administrators can access this route.
+		r.Use(app.requireRole("administrator"))
+		r.Get("/users", app.listUsers)
+		r.Post("/users", app.createUser)
+		r.Patch("/users/{id}/role", app.updateUserRole)
+	})
+
+	r.Group(func(r chi.Router) {
 		r.With(app.requireRole("administrator")).Get(
 			"/admin/test",
 			func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("Administrator access granted"))
 			},
 		)
-
-		// Both administrators and clerks can access this route.
 		r.With(app.requireRole("administrator", "clerk")).Get(
 			"/staff/test",
 			func(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +74,7 @@ func (app *application) mount() http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hi"))
 	})
-	//http.ListenAndServe(":3333", r)
+
 	pdfService := pdf.NewService(repo.New(app.db))
 	pdfHandler := pdf.NewHandler(pdfService)
 	r.Get("/pdf", pdfHandler.ListPdf)
@@ -98,7 +96,7 @@ func localFrontendCORS(next http.Handler) http.Handler {
 			}
 
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Add("Vary", "Origin")
@@ -121,11 +119,10 @@ func (app *application) run(h http.Handler) error {
 	srv := &http.Server{
 		Addr:         app.config.addr,
 		Handler:      h,
-		WriteTimeout: time.Second * 30,
-		ReadTimeout:  time.Second * 10,
+		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  10 * time.Second,
 		IdleTimeout:  time.Minute,
 	}
 	log.Printf("Server has started %s", app.config.addr)
 	return srv.ListenAndServe()
-
 }

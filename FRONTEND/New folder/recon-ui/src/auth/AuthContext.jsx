@@ -58,6 +58,10 @@ export function AuthProvider({ children }) {
     return currentUser;
   }, []);
 
+  const updateUser = useCallback((updatedUser) => {
+    setUser(updatedUser);
+  }, []);
+
   const logout = useCallback(async () => {
     const response = await fetch(`${API_BASE_URL}/auth/logout`, {
       method: 'POST',
@@ -78,8 +82,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, error, login, logout }),
-    [user, isLoading, error, login, logout],
+    () => ({ user, isLoading, error, login, logout, updateUser }),
+    [user, isLoading, error, login, logout, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
