@@ -49,6 +49,18 @@ func (q *Queries) CreatePdf(ctx context.Context, arg CreatePdfParams) (Pdf, erro
 	return i, err
 }
 
+const deletePdf = `-- name: DeletePdf :one
+DELETE FROM pdfs
+WHERE id::text = $1
+RETURNING stored_path
+`
+
+func (q *Queries) DeletePdf(ctx context.Context, id string) (string, error) {
+	var storedPath string
+	err := q.db.QueryRow(ctx, deletePdf, id).Scan(&storedPath)
+	return storedPath, err
+}
+
 const getPdf = `-- name: GetPdf :one
 SELECT id, original_name, stored_path, size_bytes, sha256, status, doc_type, extracted_text, extracted_data, error_message, uploaded_at, processed_at FROM pdfs
 WHERE id = $1

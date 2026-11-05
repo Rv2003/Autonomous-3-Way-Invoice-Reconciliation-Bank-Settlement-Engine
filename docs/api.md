@@ -13,3 +13,12 @@ All protected requests use `Authorization: Bearer <token>`. Login tokens are val
 | PATCH | `/users/{id}/role` | Administrator | Change a user's role |
 
 Create a user with `full_name`, `email`, `password`, `confirm_password`, and `role` (`administrator` or `clerk`). `employee_number` and `phone_number` are optional. The initial password is stored as a bcrypt hash. An administrator cannot demote their own account, and the final administrator cannot be demoted.
+
+## Documents
+
+| Method | Path | Access | Description |
+|---|---|---|---|
+| GET | `/pdf` | Public | List uploaded documents |
+| GET | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
+| POST | `/pdf/submit` | Public | Upload a PDF |
+| DELETE | `/pdf/{id}` | Authenticated | Delete a document and its stored PDF file |
