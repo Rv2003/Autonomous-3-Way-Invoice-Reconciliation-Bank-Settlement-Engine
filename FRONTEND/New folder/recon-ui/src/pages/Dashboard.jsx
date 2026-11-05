@@ -113,14 +113,23 @@ export default function Dashboard() {
     return [];
   }, [tgFeed]);
 
-  const recentDocuments = documents.map((document) => ({
-    id: document.id,
-    name: document.original_name,
-    source: document.source || (document.original_name.includes('telegram') ? 'Telegram' : 'Manual upload'),
-    type: 'PDF document',
-    company: '—',
-    status: displayDocumentStatus(document.status),
-  }));
+  const recentDocuments = documents.map((document) => {
+    const isTelegram = document.source === 'Telegram' ||
+      document.source === 'telegram' ||
+      (document.original_name && document.original_name.toLowerCase().includes('telegram'));
+    const cleanName = isTelegram
+      ? document.original_name.replace(/^\[telegram\]\s*/i, '')
+      : document.original_name;
+
+    return {
+      id: document.id,
+      name: cleanName,
+      source: isTelegram ? 'Telegram' : (document.source || 'Manual upload'),
+      type: 'PDF document',
+      company: '—',
+      status: displayDocumentStatus(document.status),
+    };
+  });
 
   return (
     <>
@@ -178,13 +187,13 @@ export default function Dashboard() {
           <Typography variant="body2" fontWeight={500} sx={{ mt: 2 }}>Recent upload statuses</Typography>
           <Box sx={{ mt: 1 }}>
             {loadingDocuments && <Typography variant="caption" color="text.secondary">Loading documents…</Typography>}
-            {!loadingDocuments && recentDocuments.slice(0, 3).map((document) => (
+            {!loadingDocuments && recentDocuments.filter((d) => d.source === 'Manual upload').slice(0, 3).map((document) => (
               <Stack key={document.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5, gap: 1 }}>
                 <Typography variant="caption" noWrap>{document.name}</Typography>
                 <StatusChip status={document.status} />
               </Stack>
             ))}
-            {!loadingDocuments && recentDocuments.length === 0 && !error && (
+            {!loadingDocuments && recentDocuments.filter((d) => d.source === 'Manual upload').length === 0 && !error && (
               <Typography variant="caption" color="text.secondary">No uploaded documents yet.</Typography>
             )}
           </Box>

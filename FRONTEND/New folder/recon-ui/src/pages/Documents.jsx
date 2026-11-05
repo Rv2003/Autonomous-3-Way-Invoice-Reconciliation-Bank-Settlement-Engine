@@ -10,7 +10,7 @@ import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
 import { displayDocumentStatus, fetchDocuments } from '../components/api/documents';
 
 const statuses = ['All', 'Uploaded', 'Processed', 'Processing', 'Failed'];
-const sources = ['All', 'WhatsApp', 'Gmail', 'Manual upload'];
+const sources = ['All', 'Telegram', 'WhatsApp', 'Gmail', 'Manual upload'];
 
 function formatReceived(value) {
   if (!value) return '—';
@@ -71,8 +71,8 @@ export default function Documents() {
   const rows = useMemo(
     () => documents.map((document) => ({
       id: document.id,
-      name: document.original_name,
-      source: 'Manual upload',
+      name: document.original_name ? document.original_name.replace(/^\[telegram\]\s*/i, '') : '',
+      source: (document.source === 'telegram' || document.source === 'Telegram' || document.original_name?.toLowerCase().includes('telegram')) ? 'Telegram' : (document.source || 'Manual upload'),
       type: 'PDF document',
       company: '—',
       received: formatReceived(document.uploaded_at),
