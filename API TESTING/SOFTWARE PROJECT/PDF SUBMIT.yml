@@ -1,0 +1,21 @@
+info:
+  name: PDF SUBMIT
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:8080/pdf/submit
+  body:
+    type: file
+    data:
+      - filePath: c:\Users\rusir\Downloads\EE_EC4202 Computer Architecture and Organization Programming Assignments.pdf
+        contentType: application/pdf
+        selected: true
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

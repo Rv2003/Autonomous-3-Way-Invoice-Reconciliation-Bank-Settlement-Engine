@@ -1,0 +1,267 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import {
+  Alert, Avatar, Box, Button, Card, CardContent, Chip, Divider, Link as MuiLink, List, ListItem,
+  ListItemAvatar, ListItemText, Stack, Typography,
+} from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import ChatIcon from '@mui/icons-material/Chat';
+import EmailIcon from '@mui/icons-material/Email';
+import DescriptionIcon from '@mui/icons-material/Description';
+import PageHeader from '../components/PageHeader';
+import StatCard from '../components/StatCard';
+import StatusChip from '../components/StatusChip';
+import SourceCell, { TelegramLogo } from '../components/SourceCell';
+import DataTable from '../components/DataTable';
+import PdfUploadQueue from '../components/PdfUploadQueue';
+import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
+import { whatsappFeed, gmailFeed } from '../data/mock';
+import { displayDocumentStatus, fetchDocuments, fetchTelegramFeed } from '../components/api/documents';
+
+const types = ['Auto-detect', 'Supplier invoice', 'Purchase order', 'Bank transfer'];
+
+function PanelHeader({ icon, color, bg, title, sub, tag }) {
+  return (
+    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+      <Avatar sx={{ bgcolor: bg, color, width: 40, height: 40 }}>{icon}</Avatar>
+      <Box sx={{ flexGrow: 1 }}>
+        <Typography fontWeight={500}>{title}</Typography>
+        <Typography variant="caption" color="text.secondary">{sub}</Typography>
+      </Box>
+      {tag}
+    </Stack>
+  );
+}
+
+function Feed({ items, color, bg }) {
+  return (
+    <List disablePadding>
+      {items.map((f, i) => (
+        <Box key={f.name + i}>
+          {i > 0 && <Divider component="li" />}
+          <ListItem disableGutters secondaryAction={<StatusChip status={f.status} />}>
+            <ListItemAvatar><Avatar sx={{ bgcolor: bg, color, width: 36, height: 36 }}><DescriptionIcon fontSize="small" /></Avatar></ListItemAvatar>
+            <ListItemText primary={f.name} secondary={f.meta} primaryTypographyProps={{ fontWeight: 500, fontSize: 14 }} sx={{ pr: 11 }} />
+          </ListItem>
+        </Box>
+      ))}
+    </List>
+  );
+}
+
+export default function Dashboard() {
+  const [type, setType] = useState('Auto-detect');
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
+  const [error, setError] = useState('');
+  const [tgFeed, setTgFeed] = useState([]);
+  const fileInput = useRef(null);
+  const uploadQueue = usePdfUploadQueue();
+
+  const loadDocuments = useCallback(async () => {
+    setLoadingDocuments(true);
+    setError('');
+    try {
+      setDocuments(await fetchDocuments());
+    } catch (err) {
+      setError(err.message || 'Could not load documents from the backend.');
+    } finally {
+      setLoadingDocuments(false);
+    }
+  }, []);
+
+  const loadTgFeed = useCallback(async () => {
+    const data = await fetchTelegramFeed();
+    setTgFeed(data);
+  }, []);
+
+  useEffect(() => {
+    loadDocuments();
+    loadTgFeed();
+    // Live polling every 4 seconds to catch real-time Telegram arrivals
+    const timer = setInterval(() => {
+      loadDocuments();
+      loadTgFeed();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [loadDocuments, loadTgFeed]);
+
+  const handleUploadQueue = async () => {
+    await uploadQueue.processQueue();
+    await loadDocuments();
+  };
+
+  const handleRetry = async () => {
+    await uploadQueue.retryFailed();
+    await loadDocuments();
+  };
+
+  const displayTgItems = useMemo(() => {
+    if (tgFeed && tgFeed.length > 0) {
+      return tgFeed.map((item) => {
+        const date = item.received_at ? new Date(item.received_at) : null;
+        const timeStr = date && !isNaN(date.getTime())
+          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Just now';
+        return {
+          name: item.original_filename || `Document_${item.id}.pdf`,
+          meta: `${item.sender || 'Telegram User'} · ${timeStr}`,
+          status: displayDocumentStatus(item.status),
+        };
+      });
+    }
+    return [];
+  }, [tgFeed]);
+
+  const recentDocuments = documents.map((document) => {
+    const isTelegram =
+      document.source === 'Telegram' ||
+      document.source === 'Documents via Telegram' ||
+      document.source === 'telegram' ||
+      (document.original_name && document.original_name.toLowerCase().includes('telegram'));
+    const cleanName = isTelegram
+      ? document.original_name.replace(/^\[telegram\]\s*/i, '')
+      : document.original_name;
+
+    return {
+      id: document.id,
+      name: cleanName,
+      source: isTelegram ? 'Documents via Telegram' : (document.source || 'Manual upload'),
+      type: 'PDF document',
+      company: isTelegram ? (document.sender || 'Telegram User') : '—',
+      status: displayDocumentStatus(document.status),
+    };
+  });
+
+  return (
+    <>
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".pdf,application/pdf"
+        hidden
+        multiple
+        onChange={(event) => {
+          uploadQueue.addFiles(event.target.files);
+          event.target.value = '';
+        }}
+      />
+      <PageHeader
+        title="Document Ingestion"
+        subtitle="Upload files manually or let Telegram and Gmail feed documents into the reconciliation pipeline."
+        actions={<Button variant="outlined" onClick={() => { loadDocuments(); loadTgFeed(); }} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
+      />
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(4,1fr)' }, mb: 3 }}>
+        <StatCard label="Documents today" value={128 + tgFeed.length} sub="+14% vs yesterday" />
+        <StatCard label="In pipeline" value="6" sub="Processing now" />
+        <StatCard label="Needs review" value="14" sub="In exceptions queue" color="warning.main" />
+        <StatCard label="Failed extraction" value="3" sub="Check source files" color="error.main" />
+      </Box>
+
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: 'repeat(3,1fr)' }, mb: 3 }}>
+        <Card><CardContent>
+          <PanelHeader icon={<CloudUploadIcon />} color="#2563eb" bg="#eff6ff" title="Manual Upload" sub="Admin upload to the pipeline" />
+          <Box
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              uploadQueue.addFiles(event.dataTransfer.files);
+            }}
+            sx={{ border: '2px dashed #93c5fd', bgcolor: '#f5f8ff', borderRadius: 2, p: 3, textAlign: 'center' }}
+          >
+            <CloudUploadIcon color="primary" sx={{ fontSize: 40 }} />
+            <Typography fontWeight={500}>Drag & drop invoices here</Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>Add multiple PDFs · up to 25 MB each · uploaded one at a time</Typography>
+            <Button variant="contained" size="small" onClick={() => fileInput.current?.click()}>Browse files</Button>
+          </Box>
+          <PdfUploadQueue
+            {...uploadQueue}
+            onUpload={handleUploadQueue}
+            onRetry={handleRetry}
+            onClearCompleted={uploadQueue.clearCompleted}
+            onClearQueue={uploadQueue.clearQueue}
+          />
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            <Button fullWidth variant="contained" size="small" onClick={handleUploadQueue} disabled={uploadQueue.queue.length === 0 || uploadQueue.processing}>Upload all ({uploadQueue.queue.length})</Button>
+            <Button variant="outlined" size="small" onClick={uploadQueue.clearQueue} disabled={uploadQueue.queue.length === 0 || uploadQueue.processing}>Clear</Button>
+          </Stack>
+          <Typography variant="body2" fontWeight={500} sx={{ mt: 2 }}>Recent upload statuses</Typography>
+          <Box sx={{ mt: 1 }}>
+            {loadingDocuments && <Typography variant="caption" color="text.secondary">Loading documents…</Typography>}
+            {!loadingDocuments && recentDocuments.filter((d) => d.source === 'Manual upload').slice(0, 3).map((document) => (
+              <Stack key={document.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5, gap: 1 }}>
+                <Typography variant="caption" noWrap>{document.name}</Typography>
+                <StatusChip status={document.status} />
+              </Stack>
+            ))}
+            {!loadingDocuments && recentDocuments.filter((d) => d.source === 'Manual upload').length === 0 && !error && (
+              <Typography variant="caption" color="text.secondary">No uploaded documents yet.</Typography>
+            )}
+          </Box>
+        </CardContent></Card>
+
+        {/* Live Telegram Intake Card */}
+        <Card><CardContent>
+          <PanelHeader
+            icon={<TelegramLogo size={24} />}
+            color="#0088cc"
+            bg="#e1f5fe"
+            title="Live Telegram Intake"
+            sub="Incoming documents via Telegram Bot"
+            tag={<Chip size="small" label="● Live" sx={{ bgcolor: '#e1f5fe', color: '#0088cc', fontWeight: 600 }} />}
+          />
+          <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>
+            <Stack direction="row" justifyContent="space-between">
+              <Typography variant="caption" color="text.secondary">Bot Username</Typography>
+              <Typography variant="caption" fontWeight={600} color="#0088cc">@ifs_recon_invoice_bot</Typography>
+            </Stack>
+            <Stack direction="row" justifyContent="space-between">
+              <Typography variant="caption" color="text.secondary">Webhook Status</Typography>
+              <Typography variant="caption" fontWeight={500}>{tgFeed.length > 0 ? `Active · ${tgFeed.length} received` : 'Active · Listening'}</Typography>
+            </Stack>
+          </Box>
+          {displayTgItems.length > 0 ? (
+            <Feed items={displayTgItems} color="#0088cc" bg="#e1f5fe" />
+          ) : (
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">No incoming documents yet</Typography>
+              <Typography variant="caption" color="text.secondary">Send a PDF to @ifs_recon_invoice_bot to see it here</Typography>
+            </Box>
+          )}
+          <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+            <Button fullWidth variant="outlined" size="small" onClick={loadTgFeed}>Refresh Feed</Button>
+          </Stack>
+        </CardContent></Card>
+
+        {/* Gmail Extraction Card */}
+        <Card><CardContent>
+          <PanelHeader icon={<EmailIcon />} color="#e53935" bg="#ffebee" title="Gmail Extraction" sub="Attachments from the inbox" tag={<Chip size="small" label="Synced" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }} />} />
+          <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Mailbox</Typography><Typography variant="caption" fontWeight={500}>finance@company.lk</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Last sync</Typography><Typography variant="caption" fontWeight={500}>1 min ago · 24 today</Typography></Stack>
+          </Box>
+          <Feed items={gmailFeed} color="#1976d2" bg="#ffebee" />
+          <Button fullWidth variant="outlined" sx={{ mt: 1.5 }}>Sync now</Button>
+        </CardContent></Card>
+      </Box>
+
+      <Card>
+        <Stack direction="row" justifyContent="space-between" sx={{ p: 2.5 }}>
+          <Typography variant="h6" sx={{ fontSize: 17 }}>Recent documents</Typography>
+          <MuiLink component={RouterLink} to="/documents" underline="none" fontWeight={500}>View all</MuiLink>
+        </Stack>
+        <DataTable
+          columns={[
+            { key: 'name', label: 'Document', strong: true },
+            { key: 'source', label: 'Source', render: (r) => <SourceCell source={r.source} /> },
+            { key: 'type', label: 'Type' },
+            { key: 'company', label: 'Company' },
+            { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
+          ]}
+          rows={recentDocuments.slice(0, 5)}
+        />
+      </Card>
+    </>
+  );
+}

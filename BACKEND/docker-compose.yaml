@@ -1,0 +1,49 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - pdf_uploads:/app/uploads
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      GOOSE_DBSTRING: host=db user=invoice_app password=${POSTGRES_PASSWORD:-password123} dbname=invoice_reconciliation sslmode=disable
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      UPLOAD_DIR: uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+          ignore:
+            - .git/
+            - uploads/
+            - "*.md"
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: invoice_reconciliation
+      POSTGRES_USER: invoice_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./internal/adapters/postgresql/init/00001_create_pdfs.sql:/docker-entrypoint-initdb.d/00001_create_pdfs.sql:ro
+      - ./internal/adapters/postgresql/init/00002_create_inbound_documents.sql:/docker-entrypoint-initdb.d/00002_create_inbound_documents.sql:ro
+      - ./internal/adapters/postgresql/init/00003_create_users.sql:/docker-entrypoint-initdb.d/00003_create_users.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  pdf_uploads:
