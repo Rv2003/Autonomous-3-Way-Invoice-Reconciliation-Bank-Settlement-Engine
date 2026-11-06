@@ -182,6 +182,3 @@ To run the Go API directly instead of the API container, keep PostgreSQL running
 - **Login reports a network or CORS error:** verify the API is running on port `8080` for `go run ./cmd` or `8081` for Docker Compose, open the frontend at `http://localhost:5173`, and restart/rebuild the API after backend CORS changes.
 - **A database table is missing:** check `docker compose logs api` for migration errors. Migrations run at API startup and do not require deleting the database volume.
 
-## Keeping documentation current
-
-When setup commands, environment variables, ports, routes, migrations, or development workflows change, update this README and the relevant component README in the same change. Keep secrets out of documentation; use placeholders and explain how to generate local values.
