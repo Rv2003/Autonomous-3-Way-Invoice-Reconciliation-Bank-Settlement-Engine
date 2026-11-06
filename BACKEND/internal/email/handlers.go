@@ -1,22 +1,32 @@
 package email
 
 import (
+	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	repo "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/sqlc"
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
 	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/gmailoauth"
 	appjson "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/option"
 )
+
+const gmailOAuthStateCookie = "gmail_oauth_state"
 
 type handler struct {
 	service Service
@@ -76,6 +86,120 @@ func (h *handler) CreateMailbox(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appjson.Write(w, http.StatusCreated, mailbox)
+}
+
+func (h *handler) StartGmailOAuth(w http.ResponseWriter, r *http.Request) {
+	config, err := gmailoauth.Config(gmail.GmailReadonlyScope)
+	if err != nil {
+		http.Error(w, "Gmail OAuth is not configured", http.StatusInternalServerError)
+		return
+	}
+	if config.RedirectURL == "" {
+		http.Error(w, "GMAIL_REDIRECT_URL is not configured", http.StatusInternalServerError)
+		return
+	}
+
+	stateBytes := make([]byte, 32)
+	if _, err := rand.Read(stateBytes); err != nil {
+		http.Error(w, "Could not start Gmail authorization", http.StatusInternalServerError)
+		return
+	}
+	state := base64.RawURLEncoding.EncodeToString(stateBytes)
+	http.SetCookie(w, &http.Cookie{
+		Name:     gmailOAuthStateCookie,
+		Value:    state,
+		Path:     "/email/gmail/callback",
+		HttpOnly: true,
+		Secure:   r.TLS != nil || strings.EqualFold(os.Getenv("COOKIE_SECURE"), "true"),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   600,
+	})
+	http.Redirect(w, r, config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce), http.StatusFound)
+}
+
+func (h *handler) CompleteGmailOAuth(w http.ResponseWriter, r *http.Request) {
+	stateCookie, err := r.Cookie(gmailOAuthStateCookie)
+	if err != nil {
+		http.Error(w, "Gmail authorization state is missing; start the connection again", http.StatusBadRequest)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     gmailOAuthStateCookie,
+		Value:    "",
+		Path:     "/email/gmail/callback",
+		HttpOnly: true,
+		Secure:   r.TLS != nil || strings.EqualFold(os.Getenv("COOKIE_SECURE"), "true"),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
+
+	state := r.URL.Query().Get("state")
+	if state == "" || subtle.ConstantTimeCompare([]byte(state), []byte(stateCookie.Value)) != 1 {
+		http.Error(w, "Invalid Gmail authorization state", http.StatusBadRequest)
+		return
+	}
+	if r.URL.Query().Get("error") != "" {
+		http.Error(w, "Google did not authorize Gmail access", http.StatusBadRequest)
+		return
+	}
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "Google authorization code is missing", http.StatusBadRequest)
+		return
+	}
+
+	config, err := gmailoauth.Config(gmail.GmailReadonlyScope)
+	if err != nil {
+		http.Error(w, "Gmail OAuth is not configured", http.StatusInternalServerError)
+		return
+	}
+	token, err := config.Exchange(r.Context(), code)
+	if err != nil {
+		slog.Error("could not exchange Gmail OAuth code", "error", err)
+		http.Error(w, "Could not complete Gmail authorization", http.StatusBadGateway)
+		return
+	}
+
+	gmailService, err := gmail.NewService(
+		r.Context(),
+		option.WithHTTPClient(config.Client(r.Context(), token)),
+	)
+	if err != nil {
+		http.Error(w, "Could not connect to Gmail", http.StatusBadGateway)
+		return
+	}
+	profile, err := gmailService.Users.GetProfile("me").Context(r.Context()).Do()
+	if err != nil {
+		slog.Error("could not read authorized Gmail profile", "error", err)
+		http.Error(w, "Could not verify the authorized Gmail account", http.StatusBadGateway)
+		return
+	}
+
+	_, err = h.service.CreateMailbox(r.Context(), repo.CreateEmailMailboxParams{
+		Provider:     "gmail",
+		EmailAddress: profile.EmailAddress,
+	})
+	if err != nil {
+		var pgErr interface{ SQLState() string }
+		if !errors.As(err, &pgErr) || pgErr.SQLState() != "23505" {
+			slog.Error("could not register Gmail mailbox", "error", err)
+			http.Error(w, "Could not register Gmail mailbox", http.StatusInternalServerError)
+			return
+		}
+		mailbox, getErr := h.service.GetMailboxByEmail(r.Context(), "gmail", profile.EmailAddress)
+		if getErr != nil || mailbox.Status != "active" {
+			http.Error(w, "The existing Gmail mailbox is not active", http.StatusConflict)
+			return
+		}
+	}
+
+	if err := gmailoauth.SaveToken(token); err != nil {
+		slog.Error("could not save Gmail OAuth token", "error", err)
+		http.Error(w, "Could not securely save Gmail authorization", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, env.GetString("GMAIL_FRONTEND_URL", "http://localhost:5173/"), http.StatusSeeOther)
 }
 
 type gmailPubSubRequest struct {

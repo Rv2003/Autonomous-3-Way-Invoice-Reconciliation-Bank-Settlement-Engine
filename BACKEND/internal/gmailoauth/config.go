@@ -18,6 +18,7 @@ func Config(scope string) (*oauth2.Config, error) {
 	return &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
+		RedirectURL:  env.GetString("GMAIL_REDIRECT_URL", "http://localhost:8080/email/gmail/callback"),
 		Scopes:       []string{scope},
 		Endpoint:     google.Endpoint,
 	}, nil

@@ -15,7 +15,7 @@ import SourceCell, { TelegramLogo } from '../components/SourceCell';
 import DataTable from '../components/DataTable';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
-import { displayDocumentStatus, fetchDocuments, fetchTelegramFeed } from '../api/documents';
+import { API_BASE_URL, displayDocumentStatus, fetchDocuments, fetchTelegramFeed } from '../api/documents';
 import { fetchGmailMessages } from '../api/email';
 import { useAuth } from '../auth/AuthContext';
 
@@ -283,7 +283,16 @@ export default function Dashboard() {
           {!loadingGmail && !gmailError && gmailInbox && gmailInbox.messages.length === 0 && (
             <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>No messages found in the inbox.</Typography>
           )}
-          <Button fullWidth variant="outlined" sx={{ mt: 1.5 }} onClick={loadGmailInbox} disabled={loadingGmail}>Fetch latest emails</Button>
+          <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+            {!gmailInbox && (
+              <Button fullWidth variant="contained" onClick={() => window.location.assign(`${API_BASE_URL}/email/gmail/connect`)}>
+                Connect Gmail
+              </Button>
+            )}
+            <Button fullWidth variant="outlined" onClick={gmailInbox ? loadGmailInbox : undefined} disabled={loadingGmail || !gmailInbox}>
+              Fetch latest emails
+            </Button>
+          </Stack>
         </CardContent></Card>}
       </Box>
 

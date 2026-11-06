@@ -11,6 +11,8 @@ All protected requests use `Authorization: Bearer <token>`. Login tokens are val
 | GET | `/users` | Administrator | List users |
 | POST | `/users` | Administrator | Add a user |
 | PATCH | `/users/{id}/role` | Administrator | Change a user's role |
+| GET | `/email/gmail/connect` | Administrator | Start OAuth authorization for the shared Gmail mailbox |
+| GET | `/email/gmail/callback` | Administrator | Complete authorization and register the mailbox |
 | GET | `/email/messages?limit=10` | Administrator | Fetch recent inbox message metadata from the registered Gmail mailbox (`limit` 1–50) |
 
 The Gmail inbox endpoint uses the read-only OAuth token from `GMAIL_TOKEN_FILE` and returns the latest message metadata for the active registered mailbox. It does not expose message bodies or attachment contents.

@@ -62,6 +62,8 @@ func (app *application) mount() http.Handler {
 		r.Post("/users", app.createUser)
 		r.Patch("/users/{id}/role", app.updateUserRole)
 		r.Post("/email/mailboxes", emailHandler.CreateMailbox)
+		r.Get("/email/gmail/connect", emailHandler.StartGmailOAuth)
+		r.Get("/email/gmail/callback", emailHandler.CompleteGmailOAuth)
 		r.Get("/email/messages", emailHandler.ListGmailMessages)
 		r.Get("/email/ingestion-events", emailHandler.ListIngestionEvents)
 		r.Patch("/email/ingestion-events/{id}/processing", emailHandler.ProcessIngestionEvent)

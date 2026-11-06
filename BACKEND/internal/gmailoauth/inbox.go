@@ -59,6 +59,26 @@ func NewService(ctx context.Context) (*gmail.Service, error) {
 	return service, nil
 }
 
+func SaveToken(token *oauth2.Token) error {
+	tokenPath, err := resolveTokenPath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(tokenPath), 0700); err != nil {
+		return fmt.Errorf("create Gmail token directory: %w", err)
+	}
+
+	data, err := json.Marshal(token)
+	if err != nil {
+		return fmt.Errorf("encode Gmail token: %w", err)
+	}
+
+	if err := os.WriteFile(tokenPath, data, 0600); err != nil {
+		return fmt.Errorf("save Gmail token: %w", err)
+	}
+	return nil
+}
+
 func resolveTokenPath() (string, error) {
 	if configuredPath := env.GetString("GMAIL_TOKEN_FILE", ""); configuredPath != "" {
 		return configuredPath, nil

@@ -46,25 +46,28 @@ Paste one value into `JWT_SECRET` and the other into `POSTGRES_PASSWORD` in `BAC
 | `COOKIE_SECURE` | Production | Set to `true` when the API is served over HTTPS; leave `false` for local HTTP development. |
 | `GOOSE_DBSTRING` | For local Go runs/tools | Local PostgreSQL connection string; set it in `BACKEND/.env` using the same password as `POSTGRES_PASSWORD`. Docker Compose supplies the API's value automatically. |
 | `SEED_USER_PASSWORD` | Only when creating a test user | Password input consumed by the one-off user-creation command. |
-| `GMAIL_CLIENT_ID` | For Gmail authorization/testing | OAuth client ID from your Google Cloud Desktop app credentials. |
-| `GMAIL_CLIENT_SECRET` | For Gmail authorization/testing | OAuth client secret from your Google Cloud Desktop app credentials. Keep this value private. |
-| `GMAIL_TOKEN_FILE` | Optional | Path to the OAuth token JSON file; defaults to `tokens/gmail-token.json` when run from `BACKEND`. Docker Compose mounts this folder read-only for the API. |
+| `GMAIL_CLIENT_ID` | For Gmail authorization/testing | OAuth client ID from your Google Cloud Web application credentials. |
+| `GMAIL_CLIENT_SECRET` | For Gmail authorization/testing | OAuth client secret from your Google Cloud **Web application** credentials. Keep this value private. |
+| `GMAIL_TOKEN_FILE` | Optional | Path to the OAuth token JSON file; defaults to `tokens/gmail-token.json` when run from `BACKEND`. Docker Compose mounts this folder for the API. |
+| `GMAIL_REDIRECT_URL` | Optional | OAuth callback override for local API runs; defaults to `http://localhost:8080/email/gmail/callback`. Docker Compose uses `http://localhost:8081/email/gmail/callback`. Register both URIs in Google Cloud if using both modes. |
+| `GMAIL_FRONTEND_URL` | Optional | Where to return after Gmail authorization; defaults to `http://localhost:5173/`. |
 | `VITE_API_BASE_URL` | Optional | Frontend API base URL; defaults to `http://localhost:8080`. |
 
 ### Configure Gmail OAuth
 
-In Google Cloud, enable the Gmail API, configure the OAuth consent screen, and create an OAuth client with the **Desktop app** type. Copy its client ID and client secret into `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` in `BACKEND/.env`. Do not commit or share the `.env` file.
+In Google Cloud, enable the Gmail API, configure the OAuth consent screen, and create an OAuth client with the **Web application** type. Add the exact callback URI `http://localhost:8081/email/gmail/callback` for Docker Compose and/or `http://localhost:8080/email/gmail/callback` for a locally run API to its authorized redirect URIs. Add the client ID and secret to `BACKEND/.env` as `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`. If the consent screen is in testing mode, add the Gmail account as a test user. Keep `.env` private.
 
 Set `GOOSE_DBSTRING` in `BACKEND/.env` to connect local Go tools to PostgreSQL. Use the same password as `POSTGRES_PASSWORD` and `host=localhost` when the database runs in Docker.
 
-Run the Gmail commands from the `BACKEND` directory so they load `.env`:
+Admins connect the shared inbox from the dashboard using **Connect Gmail**. Google prompts for read-only access once; on callback, the app verifies the Gmail address, registers it as an active mailbox, saves the token, and returns to the dashboard. For Docker Compose, use port `8081` in `GMAIL_REDIRECT_URL`. For `go run ./cmd`, set it to `http://localhost:8080/email/gmail/callback` and register that exact URI in Google Cloud. The Gmail account must be an approved test user if the consent screen is in testing mode.
+
+To check an already connected mailbox, run this from the `BACKEND` directory:
 
 ```powershell
-go run ./cmd/gmail-auth
 go run ./cmd/gmail-test
 ```
 
-The authorization command requests read-only Gmail access and saves the returned user token to `BACKEND/tokens/gmail-token.json`. The dashboard fetches the latest 10 inbox messages for administrator accounts; use **Fetch latest emails** to refresh. The messages endpoint returns sender, subject, snippet, received date, and whether attachments exist; it does not download message bodies or attachments. Docker Compose passes the OAuth settings from `BACKEND/.env` to the API and mounts the token directory read-only. The credentials and token directories are ignored by Git.
+The dashboard fetches the latest 10 inbox messages for administrator accounts; use **Fetch latest emails** to refresh. The messages endpoint returns sender, subject, snippet, received date, and whether attachments exist; it does not download message bodies or attachments. Docker Compose passes OAuth settings from `BACKEND/.env` to the API and mounts the token directory so the callback can save the token. The token directory is ignored by Git.
 
 ## Start the application with Docker
 
@@ -77,9 +80,9 @@ docker compose ps
 docker compose logs -f api
 ```
 
-The Compose stack starts the API and PostgreSQL. The API listens on port `8080`; PostgreSQL is available on port `5432`. Database migrations are embedded in the API and run automatically before it begins serving requests. The current migrations create the `pdfs` and `users` tables.
+The Compose stack starts the API and PostgreSQL. The API listens on container port `8080` and is exposed on host port `8081`; PostgreSQL is available on port `5432`. Database migrations are embedded in the API and run automatically before it begins serving requests.
 
-Check the API health endpoint at <http://localhost:8080/health>. Stop the services without deleting database data with:
+Check the API health endpoint at <http://localhost:8081/health>. Stop the services without deleting database data with:
 
 ```bash
 docker compose down
@@ -107,10 +110,10 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:5173>. The frontend uses `http://localhost:8080` as its default API URL. To use another API URL, create `FRONTEND/New folder/recon-ui/.env.local` with:
+Open <http://localhost:5173>. The frontend defaults to `http://localhost:8080`, which is the local Go API port. When using Docker Compose, create `FRONTEND/New folder/recon-ui/.env.local` with:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=http://localhost:8081
 ```
 
 Restart Vite after changing frontend environment variables. The API allows local loopback origins and credentialed requests. Use `http://localhost:5173` during development. For HTTPS deployments, set `COOKIE_SECURE=true` so the authentication cookie is only sent over HTTPS.
@@ -144,6 +147,8 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `POST` | `/auth/login` | Public | Authenticate with email and password |
 | `GET` | `/auth/me` | HttpOnly auth cookie | Return the authenticated user's profile |
 | `POST` | `/auth/logout` | Public; clears auth cookie | Sign out |
+| `GET` | `/email/gmail/connect` | Administrator | Start shared Gmail OAuth connection |
+| `GET` | `/email/gmail/callback` | Administrator | Complete OAuth, register the mailbox, and save its token |
 | `GET` | `/email/messages` | Administrator | Fetch recent messages from the registered Gmail inbox |
 | `GET` | `/pdf` | Public | List PDF records |
 | `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
@@ -174,7 +179,7 @@ To run the Go API directly instead of the API container, keep PostgreSQL running
 
 - **Compose says `JWT_SECRET` is missing:** create `BACKEND/.env` from `BACKEND/.env.example` and set `JWT_SECRET`.
 - **Login returns `401`:** check that the user exists, the email is correct, and the password matches the one used when creating the account.
-- **Login reports a network or CORS error:** verify the API is running on port `8080`, open the frontend at `http://localhost:5173`, and restart/rebuild the API after backend CORS changes.
+- **Login reports a network or CORS error:** verify the API is running on port `8080` for `go run ./cmd` or `8081` for Docker Compose, open the frontend at `http://localhost:5173`, and restart/rebuild the API after backend CORS changes.
 - **A database table is missing:** check `docker compose logs api` for migration errors. Migrations run at API startup and do not require deleting the database volume.
 
 ## Keeping documentation current
