@@ -1,4 +1,3 @@
--- Active: 1793027128253@@127.0.0.1@5432@invoice_reconciliation
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS pdfs (

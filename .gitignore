@@ -1,50 +1,38 @@
-# Environment variables and secrets
-# Environment variables and secrets
 .env
 .env.*
 **/.env
 **/.env.*
 !.env.example
 
-# Go build files
 *.exe
 *.test
 *.out
 
-# Logs
 *.log
 
-# Uploaded documents and generated files
 uploads/
 pdf_uploads/
 
-# Node.js dependencies
 node_modules/
 
-# Frontend build output
 dist/
 
-# Environment-specific frontend files
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# IDE settings
 .vscode/
 .idea/
 
-# Operating system files
 .DS_Store
 Thumbs.db
 
-# Environment and local secrets
 .env
 .env.*
 !.env.example
 !.env.*.example
 
-# Node.js and Vite
 node_modules/
 dist/
 coverage/
@@ -54,7 +42,6 @@ yarn-debug.log*
 pnpm-debug.log*
 *.local
 
-# Go build and test outputs
 /BACKEND/api
 /BACKEND/api.exe
 /BACKEND/bin/
@@ -62,16 +49,13 @@ pnpm-debug.log*
 *.out
 coverage.txt
 
-# Local uploads and generated data
 /BACKEND/uploads/
 
-# Editor and operating-system files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Gmail OAuth credentials and tokens
 /BACKEND/credentials/
 /BACKEND/tokens/

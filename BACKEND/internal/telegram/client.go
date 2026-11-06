@@ -10,15 +10,13 @@ import (
 	"time"
 )
 
-const maxDownloadSize = 25 << 20 // 25 MB
+const maxDownloadSize = 25 << 20
 
-// Client interacts with the Telegram Bot HTTP API.
 type Client struct {
 	BotToken string
 	HTTP     *http.Client
 }
 
-// NewClient returns a new Telegram API client.
 func NewClient(token string) *Client {
 	return &Client{
 		BotToken: token,
@@ -26,7 +24,6 @@ func NewClient(token string) *Client {
 	}
 }
 
-// GetFilePath resolves a Telegram file_id to its relative file_path.
 func (c *Client) GetFilePath(ctx context.Context, fileID string) (string, error) {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", c.BotToken, fileID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -57,7 +54,6 @@ func (c *Client) GetFilePath(ctx context.Context, fileID string) (string, error)
 	return res.Result.FilePath, nil
 }
 
-// Download fetches the raw binary file from Telegram file servers.
 func (c *Client) Download(ctx context.Context, filePath string) ([]byte, error) {
 	url := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", c.BotToken, filePath)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -87,7 +83,6 @@ func (c *Client) Download(ctx context.Context, filePath string) ([]byte, error) 
 	return data, nil
 }
 
-// SendMessage sends an acknowledgment message back to the sender on Telegram.
 func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", c.BotToken)
 	payload := map[string]any{
@@ -120,4 +115,3 @@ func (c *Client) httpClient() *http.Client {
 	}
 	return http.DefaultClient
 }
-

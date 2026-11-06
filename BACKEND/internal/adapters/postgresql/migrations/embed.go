@@ -9,8 +9,6 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-// Files contains all PostgreSQL migration files.
-//
 //go:embed *.sql
 var Files embed.FS
 

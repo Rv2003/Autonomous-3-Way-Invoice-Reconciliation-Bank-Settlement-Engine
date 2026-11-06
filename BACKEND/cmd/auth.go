@@ -18,7 +18,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// authClaims stores the user's identity and role in the JWT.
 type authClaims struct {
 	UserID   string `json:"user_id"`
 	FullName string `json:"full_name"`
@@ -47,7 +46,6 @@ type contextKey string
 const authUserKey contextKey = "auth_user"
 const authCookieName = "auth_token"
 
-// jwtSecret reads the secret from the environment.
 func jwtSecret() ([]byte, error) {
 	secret := strings.TrimSpace(env.GetString("JWT_SECRET", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
 	if len(secret) < 32 {
@@ -56,7 +54,6 @@ func jwtSecret() ([]byte, error) {
 	return []byte(secret), nil
 }
 
-// login verifies the credentials and sets a signed authentication cookie.
 func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	var input loginRequest
 
@@ -153,7 +150,6 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// logout clears the authentication cookie.
 func (app *application) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     authCookieName,
@@ -168,7 +164,6 @@ func (app *application) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// authenticate checks the JWT before allowing access to a protected route.
 func (app *application) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenString := ""
@@ -357,7 +352,6 @@ func (app *application) changePassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// requireRole restricts a route to the specified roles.
 func (app *application) requireRole(roles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return app.authenticate(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

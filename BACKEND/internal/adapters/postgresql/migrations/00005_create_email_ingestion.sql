@@ -1,5 +1,4 @@
 -- +goose Up
--- Email ingestion schema migration.
 -- +goose StatementBegin
 
 CREATE TABLE IF NOT EXISTS email_mailboxes (

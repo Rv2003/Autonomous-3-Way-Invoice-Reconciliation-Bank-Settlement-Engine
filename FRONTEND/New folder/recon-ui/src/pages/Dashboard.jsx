@@ -78,7 +78,6 @@ export default function Dashboard() {
   useEffect(() => {
     loadDocuments();
     loadTgFeed();
-    // Live polling every 4 seconds to catch real-time Telegram arrivals
     const timer = setInterval(() => {
       loadDocuments();
       loadTgFeed();
@@ -201,7 +200,6 @@ export default function Dashboard() {
           </Box>
         </CardContent></Card>
 
-        {/* Live Telegram Intake Card */}
         <Card><CardContent>
           <PanelHeader
             icon={<TelegramLogo size={24} />}
@@ -234,7 +232,6 @@ export default function Dashboard() {
           </Stack>
         </CardContent></Card>
 
-        {/* Gmail Extraction Card */}
         <Card><CardContent>
           <PanelHeader icon={<EmailIcon />} color="#e53935" bg="#ffebee" title="Gmail Extraction" sub="Attachments from the inbox" tag={<Chip size="small" label="Synced" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }} />} />
           <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>

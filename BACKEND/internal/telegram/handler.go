@@ -27,7 +27,6 @@ var allowedMime = map[string]string{
 
 var unsafeChars = regexp.MustCompile(`[^A-Za-z0-9._-]`)
 
-// Handler processes Telegram Bot webhook events.
 type Handler struct {
 	BotToken   string
 	UploadDir  string
@@ -37,7 +36,6 @@ type Handler struct {
 	Log        *slog.Logger
 }
 
-// Receive handles incoming Telegram webhook updates (POST /webhooks/telegram).
 func (h *Handler) Receive(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
@@ -52,7 +50,6 @@ func (h *Handler) Receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Always return 200 OK to Telegram so it does not hammer the server with retries
 	w.WriteHeader(http.StatusOK)
 
 	if update.Message == nil {
@@ -69,26 +66,23 @@ func (h *Handler) Receive(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 	var (
-		fileID       string
-		filename     string
-		mimeType     string
-		isPhoto      bool
+		fileID   string
+		filename string
+		mimeType string
+		isPhoto  bool
 	)
 
-	// Check if message is a document (e.g. PDF invoice)
 	if msg.Document != nil {
 		fileID = msg.Document.FileID
 		filename = msg.Document.FileName
 		mimeType = msg.Document.MimeType
 	} else if len(msg.Photo) > 0 {
-		// Take the highest resolution photo version
 		bestPhoto := msg.Photo[len(msg.Photo)-1]
 		fileID = bestPhoto.FileID
 		filename = fmt.Sprintf("invoice_photo_%d.jpg", msg.MessageID)
 		mimeType = "image/jpeg"
 		isPhoto = true
 	} else {
-		// Text message or status
 		if strings.HasPrefix(msg.Text, "/start") && msg.From != nil {
 			_ = h.Client.SendMessage(ctx, msg.From.ID,
 				"👋 Welcome to Autonomous 3-Way Invoice Reconciliation Bot!\n\n"+
@@ -109,7 +103,6 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 
 	msgIDStr := strconv.FormatInt(msg.MessageID, 10)
 
-	// Idempotency check
 	if h.Store != nil {
 		exists, err := h.Store.Exists(ctx, "telegram", msgIDStr)
 		if err != nil {
@@ -121,7 +114,6 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 		}
 	}
 
-	// Resolve sender name
 	sender := "Telegram User"
 	if msg.From != nil {
 		if msg.From.Username != "" {
@@ -134,10 +126,8 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 		}
 	}
 
-	// Download file bytes from Telegram
 	var data []byte
 	if strings.HasPrefix(fileID, "mock-") {
-		// Mock testing mode
 		data = []byte("%PDF-1.4 Fake Test Invoice Document Generated for Telegram Intake\n%EOF")
 	} else {
 		filePath, err := h.Client.GetFilePath(ctx, fileID)
@@ -169,7 +159,6 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 	sum := sha256.Sum256(data)
 	shaHex := hex.EncodeToString(sum[:])
 
-	// Record in PostgreSQL inbound_documents
 	if h.Store != nil {
 		_, err := h.Store.Insert(ctx, InboundDocument{
 			Source:            "telegram",
@@ -188,7 +177,6 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 		}
 	}
 
-	// Sync with central pdfs table if it is a PDF
 	if strings.EqualFold(ext, ".pdf") && h.PdfService != nil {
 		storedName := filename
 		if !strings.HasPrefix(strings.ToLower(filename), "[telegram]") {
@@ -207,7 +195,6 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 
 	h.logger().Info("stored telegram document", "path", savedPath, "sender", sender)
 
-	// Send confirmation message back to the sender on Telegram
 	if msg.From != nil {
 		replyText := fmt.Sprintf("✅ Document received: *%s*\nStatus: Queued for 3-Way Reconciliation\nHash: `%s...`",
 			filename, shaHex[:12])
@@ -220,7 +207,6 @@ func (h *Handler) handleMessage(ctx context.Context, msg *Message) error {
 	return nil
 }
 
-// GetFeed returns recent documents received via Telegram as JSON.
 func (h *Handler) GetFeed(w http.ResponseWriter, r *http.Request) {
 	if h.Store == nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -245,4 +231,3 @@ func (h *Handler) logger() *slog.Logger {
 	}
 	return slog.Default()
 }
-

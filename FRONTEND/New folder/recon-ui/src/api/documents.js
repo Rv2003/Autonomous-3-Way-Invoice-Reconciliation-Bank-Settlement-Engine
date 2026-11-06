@@ -18,9 +18,7 @@ export async function fetchDocuments() {
     try {
       const data = await pdfRes.value.json();
       if (Array.isArray(data)) pdfDocs = data;
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   let tgDocs = [];
@@ -39,9 +37,7 @@ export async function fetchDocuments() {
           sha256: item.sha256,
         }));
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   const seen = new Set();

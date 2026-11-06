@@ -6,19 +6,16 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// DocStore is the persistence interface for Telegram inbound documents.
 type DocStore interface {
 	Exists(ctx context.Context, source, externalMessageID string) (bool, error)
 	Insert(ctx context.Context, d InboundDocument) (bool, error)
 	ListRecent(ctx context.Context, source string, limit int) ([]InboundDocument, error)
 }
 
-// PgStore implements DocStore using PostgreSQL pgxpool.
 type PgStore struct {
 	DB *pgxpool.Pool
 }
 
-// NewPgStore returns a new PostgreSQL store for Telegram intake.
 func NewPgStore(db *pgxpool.Pool) *PgStore {
 	return &PgStore{DB: db}
 }
@@ -96,4 +93,3 @@ func (s *PgStore) ListRecent(ctx context.Context, source string, limit int) ([]I
 	}
 	return docs, rows.Err()
 }
-

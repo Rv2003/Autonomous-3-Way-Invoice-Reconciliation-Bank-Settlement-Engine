@@ -62,7 +62,6 @@ func main() {
 	fmt.Println("Gmail API connection successful.")
 	fmt.Printf("Authenticated account: %s\n", profile.EmailAddress)
 
-	// PostgreSQL lookup
 	dbString := os.Getenv("GOOSE_DBSTRING")
 	if dbString == "" {
 		log.Fatal("GOOSE_DBSTRING is not set")

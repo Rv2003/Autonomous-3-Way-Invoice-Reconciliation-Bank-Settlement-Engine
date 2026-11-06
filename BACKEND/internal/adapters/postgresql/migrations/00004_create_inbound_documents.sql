@@ -1,5 +1,4 @@
 -- +goose Up
--- Inbound document storage migration.
 CREATE TABLE IF NOT EXISTS inbound_documents (
     id                  BIGSERIAL PRIMARY KEY,
     source              TEXT        NOT NULL,           -- 'telegram' | 'whatsapp' | 'email' | 'upload'
