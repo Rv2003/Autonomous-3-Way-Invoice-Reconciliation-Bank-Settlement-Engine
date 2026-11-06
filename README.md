@@ -46,6 +46,7 @@ Paste one value into `JWT_SECRET` and the other into `POSTGRES_PASSWORD` in `BAC
 | `COOKIE_SECURE` | Production | Set to `true` when the API is served over HTTPS; leave `false` for local HTTP development. |
 | `GOOSE_DBSTRING` | For local Go runs/tools | Database connection string; Docker Compose supplies the API's value automatically. |
 | `SEED_USER_PASSWORD` | Only when creating a test user | Password input consumed by the one-off user-creation command. |
+| `TELEGRAM_BOT_TOKEN` | Optional | Telegram Bot API token for incoming invoice intake webhook. |
 | `VITE_API_BASE_URL` | Optional | Frontend API base URL; defaults to `http://localhost:8080`. |
 
 ## Start the application with Docker
@@ -129,6 +130,8 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `GET` | `/pdf` | Public | List PDF records |
 | `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |
+| `POST` | `/webhooks/telegram` | Public | Telegram intake webhook for invoice documents |
+| `GET` | `/telegram/feed` | Public | Feed of incoming documents received via Telegram |
 
 Authentication uses an HttpOnly, SameSite=Lax cookie. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
 

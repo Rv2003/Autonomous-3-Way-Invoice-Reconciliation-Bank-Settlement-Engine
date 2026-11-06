@@ -10,7 +10,9 @@ import (
 	repo "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/sqlc"
 
 	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/email"
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
 	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/pdf"
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/telegram"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -89,9 +91,25 @@ func (app *application) mount() http.Handler {
 
 	pdfService := pdf.NewService(repo.New(app.db))
 	pdfHandler := pdf.NewHandler(pdfService)
+	r.Post("/webhooks/gmail", emailHandler.GmailWebhook)
 	r.Get("/pdf", pdfHandler.ListPdf)
 	r.Get("/pdf/{id}/file", pdfHandler.ViewPdf)
 	r.Post("/pdf/submit", pdfHandler.CreatePdf)
+
+	// Telegram Intake Webhook Handlers
+	botToken := env.GetString("TELEGRAM_BOT_TOKEN", "")
+	tgClient := telegram.NewClient(botToken)
+	tgHandler := &telegram.Handler{
+		BotToken:   botToken,
+		UploadDir:  env.GetString("UPLOAD_DIR", "uploads"),
+		Client:     tgClient,
+		Store:      telegram.NewPgStore(app.db),
+		PdfService: pdfService,
+	}
+
+	r.Post("/webhooks/telegram", tgHandler.Receive)
+	r.Post("/webhooks/telegram/", tgHandler.Receive)
+	r.Get("/telegram/feed", tgHandler.GetFeed)
 
 	return r
 }
