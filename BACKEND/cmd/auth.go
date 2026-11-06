@@ -146,7 +146,8 @@ func (app *application) login(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, authCookie)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"user": user,
+		"token": tokenString,
+		"user":  user,
 	})
 }
 

@@ -4,7 +4,7 @@ All protected requests use `Authorization: Bearer <token>`. Login tokens are val
 
 | Method | Path | Access | Description |
 |---|---|---|---|
-| POST | `/auth/login` | Public | Sign in with email and password; returns a token and user |
+| POST | `/auth/login` | Public | Sign in with email and password; returns `{"token":"...","user":{...}}` and sets the HttpOnly auth cookie |
 | GET | `/auth/me` | Authenticated | Return the signed-in user's identity and role |
 | PATCH | `/auth/profile` | Authenticated | Update the signed-in user's name, email, employee number, and phone |
 | PATCH | `/auth/password` | Authenticated | Change password using current password and matching new-password confirmation |

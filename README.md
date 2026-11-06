@@ -116,7 +116,7 @@ go run ./cmd/create-user -name "$USER_NAME" -email "$USER_EMAIL"
 unset SEED_USER_PASSWORD GOOSE_DBSTRING JWT_SECRET POSTGRES_PASSWORD
 ```
 
-Use the email and password entered above to sign in at <http://localhost:5173/login>. The login flow calls `POST /auth/login`, which sets an HttpOnly authentication cookie, then fetches the current user's profile from `GET /auth/me`. The verified user is shared with components through the React auth context; the JWT is not stored in browser local or session storage. Unchecking “Keep me signed in” creates a session cookie/token; checking it makes the cookie/token valid for 30 days.
+Use the email and password entered above to sign in at <http://localhost:5173/login>. The login flow calls `POST /auth/login`, which returns the signed JWT and user as JSON and sets an HttpOnly authentication cookie, then fetches the current user's profile from `GET /auth/me`. The verified user is shared with components through the React auth context; the JWT is not stored in browser local or session storage. Unchecking “Keep me signed in” creates a session cookie/token; checking it makes the cookie/token valid for 30 days.
 
 ## Core API routes
 
@@ -130,7 +130,7 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |
 
-Authentication uses an HttpOnly, SameSite=Lax cookie. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
+Authentication uses an HttpOnly, SameSite=Lax cookie. The login JSON response includes the JWT as `token` alongside the `user` object. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
 
 ## Local development and checks
 
