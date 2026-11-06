@@ -44,9 +44,27 @@ Paste one value into `JWT_SECRET` and the other into `POSTGRES_PASSWORD` in `BAC
 | `JWT_SECRET` | Yes | Signs API login tokens; use a random value at least 32 characters long. |
 | `POSTGRES_PASSWORD` | Recommended | Sets the local database password used by PostgreSQL and the API connection. |
 | `COOKIE_SECURE` | Production | Set to `true` when the API is served over HTTPS; leave `false` for local HTTP development. |
-| `GOOSE_DBSTRING` | For local Go runs/tools | Database connection string; Docker Compose supplies the API's value automatically. |
+| `GOOSE_DBSTRING` | For local Go runs/tools | Local PostgreSQL connection string; set it in `BACKEND/.env` using the same password as `POSTGRES_PASSWORD`. Docker Compose supplies the API's value automatically. |
 | `SEED_USER_PASSWORD` | Only when creating a test user | Password input consumed by the one-off user-creation command. |
+| `GMAIL_CLIENT_ID` | For Gmail authorization/testing | OAuth client ID from your Google Cloud Desktop app credentials. |
+| `GMAIL_CLIENT_SECRET` | For Gmail authorization/testing | OAuth client secret from your Google Cloud Desktop app credentials. Keep this value private. |
+| `GMAIL_TOKEN_FILE` | Optional | Path to the OAuth token JSON file; defaults to `tokens/gmail-token.json` when run from `BACKEND`. Docker Compose mounts this folder read-only for the API. |
 | `VITE_API_BASE_URL` | Optional | Frontend API base URL; defaults to `http://localhost:8080`. |
+
+### Configure Gmail OAuth
+
+In Google Cloud, enable the Gmail API, configure the OAuth consent screen, and create an OAuth client with the **Desktop app** type. Copy its client ID and client secret into `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` in `BACKEND/.env`. Do not commit or share the `.env` file.
+
+Set `GOOSE_DBSTRING` in `BACKEND/.env` to connect local Go tools to PostgreSQL. Use the same password as `POSTGRES_PASSWORD` and `host=localhost` when the database runs in Docker.
+
+Run the Gmail commands from the `BACKEND` directory so they load `.env`:
+
+```powershell
+go run ./cmd/gmail-auth
+go run ./cmd/gmail-test
+```
+
+The authorization command requests read-only Gmail access and saves the returned user token to `BACKEND/tokens/gmail-token.json`. The dashboard fetches the latest 10 inbox messages for administrator accounts; use **Fetch latest emails** to refresh. The messages endpoint returns sender, subject, snippet, received date, and whether attachments exist; it does not download message bodies or attachments. Docker Compose passes the OAuth settings from `BACKEND/.env` to the API and mounts the token directory read-only. The credentials and token directories are ignored by Git.
 
 ## Start the application with Docker
 
@@ -126,6 +144,7 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `POST` | `/auth/login` | Public | Authenticate with email and password |
 | `GET` | `/auth/me` | HttpOnly auth cookie | Return the authenticated user's profile |
 | `POST` | `/auth/logout` | Public; clears auth cookie | Sign out |
+| `GET` | `/email/messages` | Administrator | Fetch recent messages from the registered Gmail inbox |
 | `GET` | `/pdf` | Public | List PDF records |
 | `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |

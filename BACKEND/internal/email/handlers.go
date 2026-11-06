@@ -4,13 +4,17 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	repo "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/sqlc"
+	"github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/gmailoauth"
 	appjson "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -175,6 +179,42 @@ func (h *handler) ListIngestionEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appjson.Write(w, http.StatusOK, events)
+}
+
+func (h *handler) ListGmailMessages(w http.ResponseWriter, r *http.Request) {
+	limit := int64(10)
+	if value := r.URL.Query().Get("limit"); value != "" {
+		parsedLimit, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || parsedLimit < 1 || parsedLimit > 50 {
+			http.Error(w, "limit must be between 1 and 50", http.StatusBadRequest)
+			return
+		}
+		limit = parsedLimit
+	}
+
+	inbox, err := gmailoauth.FetchInbox(r.Context(), limit)
+	if err != nil {
+		slog.Error("could not fetch Gmail inbox", "error", err)
+		http.Error(w, "Could not fetch Gmail inbox. Check OAuth configuration and token.", http.StatusBadGateway)
+		return
+	}
+
+	mailbox, err := h.service.GetMailboxByEmail(r.Context(), "gmail", inbox.Email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			http.Error(w, "Gmail account is not registered as a mailbox", http.StatusConflict)
+			return
+		}
+		slog.Error("could not verify Gmail mailbox", "error", err)
+		http.Error(w, "Could not verify Gmail mailbox", http.StatusInternalServerError)
+		return
+	}
+	if mailbox.Status != "active" {
+		http.Error(w, "Gmail mailbox is not active", http.StatusConflict)
+		return
+	}
+
+	appjson.Write(w, http.StatusOK, inbox)
 }
 
 func (h *handler) ProcessIngestionEvent(w http.ResponseWriter, r *http.Request) {

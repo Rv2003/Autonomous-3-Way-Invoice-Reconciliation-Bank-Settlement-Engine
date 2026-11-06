@@ -11,6 +11,9 @@ All protected requests use `Authorization: Bearer <token>`. Login tokens are val
 | GET | `/users` | Administrator | List users |
 | POST | `/users` | Administrator | Add a user |
 | PATCH | `/users/{id}/role` | Administrator | Change a user's role |
+| GET | `/email/messages?limit=10` | Administrator | Fetch recent inbox message metadata from the registered Gmail mailbox (`limit` 1–50) |
+
+The Gmail inbox endpoint uses the read-only OAuth token from `GMAIL_TOKEN_FILE` and returns the latest message metadata for the active registered mailbox. It does not expose message bodies or attachment contents.
 
 Create a user with `full_name`, `email`, `password`, `confirm_password`, and `role` (`administrator` or `clerk`). `employee_number` and `phone_number` are optional. The initial password is stored as a bcrypt hash. An administrator cannot demote their own account, and the final administrator cannot be demoted.
 
