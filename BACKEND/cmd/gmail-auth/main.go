@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	env "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -22,6 +24,11 @@ const (
 
 func main() {
 	ctx := context.Background()
+
+	emailAddress := env.GetString("EMAIL_ADDRESS", "")
+	if emailAddress == "" {
+		log.Fatal("EMAIL_ADDRESS environment variable is required")
+	}
 
 	credentials, err := os.ReadFile(credentialsFile)
 	if err != nil {
@@ -36,7 +43,7 @@ func main() {
 		log.Fatalf("failed to parse OAuth credentials: %v", err)
 	}
 
-	token, err := authorize(ctx, config)
+	token, err := authorize(ctx, config, emailAddress)
 	if err != nil {
 		log.Fatalf("authorization failed: %v", err)
 	}
@@ -47,10 +54,15 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("Gmail authorization completed successfully.")
+	fmt.Printf("Mailbox: %s\n", emailAddress)
 	fmt.Printf("Token saved to: %s\n", tokenFile)
 }
 
-func authorize(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+func authorize(
+	ctx context.Context,
+	config *oauth2.Config,
+	emailAddress string,
+) (*oauth2.Token, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local listener: %w", err)
@@ -68,7 +80,7 @@ func authorize(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error
 	fmt.Println()
 	fmt.Println(authURL)
 	fmt.Println()
-	fmt.Println("Sign in using: awirbse.devtest@gmail.com")
+	fmt.Printf("Sign in using: %s\n", emailAddress)
 	fmt.Println()
 	fmt.Println("Waiting for Google's callback...")
 
@@ -83,25 +95,43 @@ func authorize(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error
 				"Google returned OAuth error: %s",
 				r.URL.Query().Get("error"),
 			)
-			http.Error(w, "Authorization failed.", http.StatusBadRequest)
+			http.Error(
+				w,
+				"Authorization failed.",
+				http.StatusBadRequest,
+			)
 			return
 		}
 
 		code := r.URL.Query().Get("code")
 		if code == "" {
 			errResult <- fmt.Errorf("authorization code missing")
-			http.Error(w, "Authorization code missing.", http.StatusBadRequest)
+			http.Error(
+				w,
+				"Authorization code missing.",
+				http.StatusBadRequest,
+			)
 			return
 		}
 
 		token, err := config.Exchange(ctx, code)
 		if err != nil {
-			errResult <- fmt.Errorf("failed to exchange authorization code: %w", err)
-			http.Error(w, "Authorization failed.", http.StatusInternalServerError)
+			errResult <- fmt.Errorf(
+				"failed to exchange authorization code: %w",
+				err,
+			)
+			http.Error(
+				w,
+				"Authorization failed.",
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
-		fmt.Fprintln(w, "Authorization successful. You can close this window.")
+		fmt.Fprintln(
+			w,
+			"Authorization successful. You can close this window.",
+		)
 
 		result <- token
 	})
@@ -111,7 +141,8 @@ func authorize(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error
 	}
 
 	go func() {
-		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := server.Serve(listener); err != nil &&
+			err != http.ErrServerClosed {
 			errResult <- err
 		}
 	}()
@@ -140,4 +171,3 @@ func saveToken(path string, token *oauth2.Token) error {
 
 	return json.NewEncoder(file).Encode(token)
 }
-

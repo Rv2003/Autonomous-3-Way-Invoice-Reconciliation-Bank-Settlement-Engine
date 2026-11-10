@@ -129,6 +129,19 @@ func (q *Queries) CreatePdf(ctx context.Context, arg CreatePdfParams) (Pdf, erro
 	return i, err
 }
 
+const deletePdf = `-- name: DeletePdf :one
+DELETE FROM pdfs
+WHERE id::text = $1
+RETURNING stored_path
+`
+
+func (q *Queries) DeletePdf(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, deletePdf, id)
+	var stored_path string
+	err := row.Scan(&stored_path)
+	return stored_path, err
+}
+
 const getEmailMailboxByEmail = `-- name: GetEmailMailboxByEmail :one
 SELECT id, provider, email_address, history_id, watch_expires_at, status, created_at, updated_at
 FROM email_mailboxes
@@ -155,18 +168,6 @@ func (q *Queries) GetEmailMailboxByEmail(ctx context.Context, arg GetEmailMailbo
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const deletePdf = `-- name: DeletePdf :one
-DELETE FROM pdfs
-WHERE id::text = $1
-RETURNING stored_path
-`
-
-func (q *Queries) DeletePdf(ctx context.Context, id string) (string, error) {
-	var storedPath string
-	err := q.db.QueryRow(ctx, deletePdf, id).Scan(&storedPath)
-	return storedPath, err
 }
 
 const getPdf = `-- name: GetPdf :one
@@ -353,6 +354,38 @@ func (q *Queries) MarkEmailIngestionEventProcessing(ctx context.Context, id pgty
 		&i.LastError,
 		&i.ReceivedAt,
 		&i.ProcessedAt,
+	)
+	return i, err
+}
+
+const updateEmailMailboxWatch = `-- name: UpdateEmailMailboxWatch :one
+UPDATE email_mailboxes
+SET
+    history_id = $2,
+    watch_expires_at = $3,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, provider, email_address, history_id, watch_expires_at, status, created_at, updated_at
+`
+
+type UpdateEmailMailboxWatchParams struct {
+	ID             pgtype.UUID        `json:"id"`
+	HistoryID      pgtype.Text        `json:"history_id"`
+	WatchExpiresAt pgtype.Timestamptz `json:"watch_expires_at"`
+}
+
+func (q *Queries) UpdateEmailMailboxWatch(ctx context.Context, arg UpdateEmailMailboxWatchParams) (EmailMailbox, error) {
+	row := q.db.QueryRow(ctx, updateEmailMailboxWatch, arg.ID, arg.HistoryID, arg.WatchExpiresAt)
+	var i EmailMailbox
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.EmailAddress,
+		&i.HistoryID,
+		&i.WatchExpiresAt,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

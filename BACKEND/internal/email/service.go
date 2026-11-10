@@ -8,13 +8,48 @@ import (
 )
 
 type Service interface {
-	CreateMailbox(ctx context.Context, params repo.CreateEmailMailboxParams) (repo.EmailMailbox, error)
-	GetMailboxByEmail(ctx context.Context, provider string, emailAddress string) (repo.EmailMailbox, error)
-	CreateIngestionEvent(ctx context.Context, params repo.CreateEmailIngestionEventParams) (repo.EmailIngestionEvent, error)
-	ListIngestionEvents(ctx context.Context) ([]repo.EmailIngestionEvent, error)
-	MarkIngestionEventProcessing(ctx context.Context, id pgtype.UUID) (repo.EmailIngestionEvent, error)
-	MarkIngestionEventProcessed(ctx context.Context, id pgtype.UUID) (repo.EmailIngestionEvent, error)
-	MarkIngestionEventFailed(ctx context.Context, id pgtype.UUID, lastError string) (repo.EmailIngestionEvent, error)
+	CreateMailbox(
+		ctx context.Context,
+		params repo.CreateEmailMailboxParams,
+	) (repo.EmailMailbox, error)
+
+	GetMailboxByEmail(
+		ctx context.Context,
+		provider string,
+		emailAddress string,
+	) (repo.EmailMailbox, error)
+
+	UpdateMailboxWatch(
+		ctx context.Context,
+		id pgtype.UUID,
+		historyID string,
+		watchExpiresAt pgtype.Timestamptz,
+	) (repo.EmailMailbox, error)
+
+	CreateIngestionEvent(
+		ctx context.Context,
+		params repo.CreateEmailIngestionEventParams,
+	) (repo.EmailIngestionEvent, error)
+
+	ListIngestionEvents(
+		ctx context.Context,
+	) ([]repo.EmailIngestionEvent, error)
+
+	MarkIngestionEventProcessing(
+		ctx context.Context,
+		id pgtype.UUID,
+	) (repo.EmailIngestionEvent, error)
+
+	MarkIngestionEventProcessed(
+		ctx context.Context,
+		id pgtype.UUID,
+	) (repo.EmailIngestionEvent, error)
+
+	MarkIngestionEventFailed(
+		ctx context.Context,
+		id pgtype.UUID,
+		lastError string,
+	) (repo.EmailIngestionEvent, error)
 }
 
 type svc struct {
@@ -44,6 +79,25 @@ func (s *svc) GetMailboxByEmail(
 		repo.GetEmailMailboxByEmailParams{
 			Provider:     provider,
 			EmailAddress: emailAddress,
+		},
+	)
+}
+
+func (s *svc) UpdateMailboxWatch(
+	ctx context.Context,
+	id pgtype.UUID,
+	historyID string,
+	watchExpiresAt pgtype.Timestamptz,
+) (repo.EmailMailbox, error) {
+	return s.repo.UpdateEmailMailboxWatch(
+		ctx,
+		repo.UpdateEmailMailboxWatchParams{
+			ID: id,
+			HistoryID: pgtype.Text{
+				String: historyID,
+				Valid:  true,
+			},
+			WatchExpiresAt: watchExpiresAt,
 		},
 	)
 }

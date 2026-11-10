@@ -1,10 +1,14 @@
 package email
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
+	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	repo "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/adapters/postgresql/sqlc"
@@ -85,10 +89,20 @@ type gmailPubSubMessage struct {
 
 type gmailNotification struct {
 	EmailAddress string `json:"emailAddress"`
-	HistoryID    string `json:"historyId"`
+	HistoryID    int64  `json:"historyId"`
 }
 
 func (h *handler) GmailWebhook(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "could not read request body", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("GMAIL WEBHOOK RAW BODY: %s", string(body))
+
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
 	var req gmailPubSubRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -120,14 +134,13 @@ func (h *handler) GmailWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	notification.EmailAddress = strings.TrimSpace(notification.EmailAddress)
-	notification.HistoryID = strings.TrimSpace(notification.HistoryID)
 
 	if notification.EmailAddress == "" {
 		http.Error(w, "emailAddress is required", http.StatusBadRequest)
 		return
 	}
 
-	if notification.HistoryID == "" {
+	if notification.HistoryID == 0 {
 		http.Error(w, "historyId is required", http.StatusBadRequest)
 		return
 	}
@@ -147,7 +160,7 @@ func (h *handler) GmailWebhook(w http.ResponseWriter, r *http.Request) {
 		repo.CreateEmailIngestionEventParams{
 			MailboxID:       mailbox.ID,
 			PubsubMessageID: req.Message.MessageID,
-			HistoryID:       notification.HistoryID,
+			HistoryID:       strconv.FormatInt(notification.HistoryID, 10),
 		},
 	)
 	if err != nil {

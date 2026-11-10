@@ -14,14 +14,15 @@ type Querier interface {
 	CreateEmailIngestionEvent(ctx context.Context, arg CreateEmailIngestionEventParams) (EmailIngestionEvent, error)
 	CreateEmailMailbox(ctx context.Context, arg CreateEmailMailboxParams) (EmailMailbox, error)
 	CreatePdf(ctx context.Context, arg CreatePdfParams) (Pdf, error)
+	DeletePdf(ctx context.Context, id pgtype.UUID) (string, error)
 	GetEmailMailboxByEmail(ctx context.Context, arg GetEmailMailboxByEmailParams) (EmailMailbox, error)
-	DeletePdf(ctx context.Context, id string) (string, error)
 	GetPdf(ctx context.Context, id pgtype.UUID) (Pdf, error)
 	ListEmailIngestionEvents(ctx context.Context) ([]EmailIngestionEvent, error)
 	ListPdf(ctx context.Context) ([]ListPdfRow, error)
 	MarkEmailIngestionEventFailed(ctx context.Context, arg MarkEmailIngestionEventFailedParams) (EmailIngestionEvent, error)
 	MarkEmailIngestionEventProcessed(ctx context.Context, id pgtype.UUID) (EmailIngestionEvent, error)
 	MarkEmailIngestionEventProcessing(ctx context.Context, id pgtype.UUID) (EmailIngestionEvent, error)
+	UpdateEmailMailboxWatch(ctx context.Context, arg UpdateEmailMailboxWatchParams) (EmailMailbox, error)
 	UpdatePdfStatus(ctx context.Context, arg UpdatePdfStatusParams) error
 }
 

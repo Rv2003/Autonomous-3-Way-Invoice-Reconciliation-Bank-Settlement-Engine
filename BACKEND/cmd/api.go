@@ -59,6 +59,8 @@ func (app *application) mount() http.Handler {
 	emailService := email.NewService(repo.New(app.db))
 	emailHandler := email.NewHandler(emailService)
 
+	r.Post("/webhooks/gmail", emailHandler.GmailWebhook)
+
 	r.Group(func(r chi.Router) {
 		r.Use(app.requireRole("administrator"))
 		r.Get("/users", app.listUsers)

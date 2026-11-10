@@ -40,7 +40,11 @@ func (s *svc) GetPdf(ctx context.Context, id string) (repo.Pdf, error) {
 func (s *svc) CreatePdf(ctx context.Context, payload CreatePdfPayload) (repo.Pdf, error) {
 	return s.repo.CreatePdf(ctx, payload.toRepoParams())
 }
-
 func (s *svc) DeletePdf(ctx context.Context, id string) (string, error) {
-	return s.repo.DeletePdf(ctx, id)
+	var pdfID pgtype.UUID
+	if err := pdfID.Scan(id); err != nil {
+		return "", ErrInvalidDocumentID
+	}
+
+	return s.repo.DeletePdf(ctx, pdfID)
 }

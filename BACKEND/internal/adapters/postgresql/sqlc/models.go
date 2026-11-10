@@ -31,6 +31,21 @@ type EmailMailbox struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type InboundDocument struct {
+	ID                int64              `json:"id"`
+	Source            string             `json:"source"`
+	ExternalMessageID string             `json:"external_message_id"`
+	Sender            string             `json:"sender"`
+	MediaID           string             `json:"media_id"`
+	MimeType          string             `json:"mime_type"`
+	OriginalFilename  string             `json:"original_filename"`
+	StoragePath       string             `json:"storage_path"`
+	Sha256            string             `json:"sha256"`
+	SizeBytes         int64              `json:"size_bytes"`
+	Status            string             `json:"status"`
+	ReceivedAt        pgtype.Timestamptz `json:"received_at"`
+}
+
 type Pdf struct {
 	ID            pgtype.UUID        `json:"id"`
 	OriginalName  string             `json:"original_name"`
@@ -44,4 +59,15 @@ type Pdf struct {
 	ErrorMessage  pgtype.Text        `json:"error_message"`
 	UploadedAt    pgtype.Timestamptz `json:"uploaded_at"`
 	ProcessedAt   pgtype.Timestamptz `json:"processed_at"`
+}
+
+type User struct {
+	ID             pgtype.UUID        `json:"id"`
+	FullName       string             `json:"full_name"`
+	Email          string             `json:"email"`
+	PasswordHash   string             `json:"password_hash"`
+	Role           string             `json:"role"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	EmployeeNumber pgtype.Text        `json:"employee_number"`
+	PhoneNumber    pgtype.Text        `json:"phone_number"`
 }

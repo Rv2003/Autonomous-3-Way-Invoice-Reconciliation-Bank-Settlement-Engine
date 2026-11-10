@@ -56,6 +56,16 @@ FROM email_mailboxes
 WHERE provider = $1
   AND email_address = $2;
 
+-- name: UpdateEmailMailboxWatch :one
+UPDATE email_mailboxes
+SET
+    history_id = $2,
+    watch_expires_at = $3,
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+
 
 -- name: CreateEmailIngestionEvent :one
 INSERT INTO email_ingestion_events (

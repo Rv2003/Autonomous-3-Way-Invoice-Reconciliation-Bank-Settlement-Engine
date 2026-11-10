@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 
+	env "github.com/Rv2003/Autonomous-3-Way-Invoice-Reconciliation-Bank-Settlement-Engine/BACKEND/internal/env"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
@@ -63,7 +65,7 @@ func main() {
 	fmt.Printf("Authenticated account: %s\n", profile.EmailAddress)
 
 	// PostgreSQL lookup
-	dbString := os.Getenv("GOOSE_DBSTRING")
+	dbString := env.GetString("GOOSE_DBSTRING", "")
 	if dbString == "" {
 		log.Fatal("GOOSE_DBSTRING is not set")
 	}
