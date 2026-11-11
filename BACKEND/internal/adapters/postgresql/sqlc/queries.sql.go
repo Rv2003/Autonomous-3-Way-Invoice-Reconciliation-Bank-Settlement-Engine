@@ -142,6 +142,29 @@ func (q *Queries) DeletePdf(ctx context.Context, id pgtype.UUID) (string, error)
 	return stored_path, err
 }
 
+const getEmailIngestionEvent = `-- name: GetEmailIngestionEvent :one
+SELECT id, mailbox_id, pubsub_message_id, history_id, status, attempts, last_error, received_at, processed_at
+FROM email_ingestion_events
+WHERE id = $1
+`
+
+func (q *Queries) GetEmailIngestionEvent(ctx context.Context, id pgtype.UUID) (EmailIngestionEvent, error) {
+	row := q.db.QueryRow(ctx, getEmailIngestionEvent, id)
+	var i EmailIngestionEvent
+	err := row.Scan(
+		&i.ID,
+		&i.MailboxID,
+		&i.PubsubMessageID,
+		&i.HistoryID,
+		&i.Status,
+		&i.Attempts,
+		&i.LastError,
+		&i.ReceivedAt,
+		&i.ProcessedAt,
+	)
+	return i, err
+}
+
 const getEmailMailboxByEmail = `-- name: GetEmailMailboxByEmail :one
 SELECT id, provider, email_address, history_id, watch_expires_at, status, created_at, updated_at
 FROM email_mailboxes

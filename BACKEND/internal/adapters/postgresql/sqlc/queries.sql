@@ -80,6 +80,11 @@ VALUES (
 )
 RETURNING *;
 
+-- name: GetEmailIngestionEvent :one
+SELECT *
+FROM email_ingestion_events
+WHERE id = $1;
+
 
 -- name: ListEmailIngestionEvents :many
 SELECT *

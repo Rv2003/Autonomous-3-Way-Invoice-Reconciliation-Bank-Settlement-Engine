@@ -31,6 +31,11 @@ type Service interface {
 		params repo.CreateEmailIngestionEventParams,
 	) (repo.EmailIngestionEvent, error)
 
+	GetIngestionEvent(
+		ctx context.Context,
+		id pgtype.UUID,
+	) (repo.EmailIngestionEvent, error)
+
 	ListIngestionEvents(
 		ctx context.Context,
 	) ([]repo.EmailIngestionEvent, error)
@@ -107,6 +112,13 @@ func (s *svc) CreateIngestionEvent(
 	params repo.CreateEmailIngestionEventParams,
 ) (repo.EmailIngestionEvent, error) {
 	return s.repo.CreateEmailIngestionEvent(ctx, params)
+}
+
+func (s *svc) GetIngestionEvent(
+	ctx context.Context,
+	id pgtype.UUID,
+) (repo.EmailIngestionEvent, error) {
+	return s.repo.GetEmailIngestionEvent(ctx, id)
 }
 
 func (s *svc) ListIngestionEvents(
