@@ -44,10 +44,32 @@ Paste one value into `JWT_SECRET` and the other into `POSTGRES_PASSWORD` in `BAC
 | `JWT_SECRET` | Yes | Signs API login tokens; use a random value at least 32 characters long. |
 | `POSTGRES_PASSWORD` | Recommended | Sets the local database password used by PostgreSQL and the API connection. |
 | `COOKIE_SECURE` | Production | Set to `true` when the API is served over HTTPS; leave `false` for local HTTP development. |
-| `GOOSE_DBSTRING` | For local Go runs/tools | Database connection string; Docker Compose supplies the API's value automatically. |
+| `CORS_ALLOWED_ORIGINS` | For hosted frontends | Comma-separated exact frontend origins (scheme and host, with optional port; no path). Localhost origins are allowed by default. |
+| `GOOSE_DBSTRING` | For local Go runs/tools | Local PostgreSQL connection string; set it in `BACKEND/.env` using the same password as `POSTGRES_PASSWORD`. Docker Compose supplies the API's value automatically. |
 | `SEED_USER_PASSWORD` | Only when creating a test user | Password input consumed by the one-off user-creation command. |
 | `TELEGRAM_BOT_TOKEN` | Optional | Telegram Bot API token for incoming invoice intake webhook. |
+| `GMAIL_CLIENT_ID` | For Gmail authorization/testing | OAuth client ID from your Google Cloud Web application credentials. |
+| `GMAIL_CLIENT_SECRET` | For Gmail authorization/testing | OAuth client secret from your Google Cloud **Web application** credentials. Keep this value private. |
+| `GMAIL_TOKEN_FILE` | Optional | Path to the OAuth token JSON file; defaults to `tokens/gmail-token.json` when run from `BACKEND`. Docker Compose mounts this folder for the API. |
+| `GMAIL_REDIRECT_URL` | Optional | OAuth callback override for local API runs; defaults to `http://localhost:8080/email/gmail/callback`. Docker Compose uses `http://localhost:8081/email/gmail/callback`. Register both URIs in Google Cloud if using both modes. |
+| `GMAIL_FRONTEND_URL` | Optional | Where to return after Gmail authorization; defaults to `http://localhost:5173/`. |
 | `VITE_API_BASE_URL` | Optional | Frontend API base URL; defaults to `http://localhost:8080`. |
+
+### Configure Gmail OAuth
+
+In Google Cloud, enable the Gmail API, configure the OAuth consent screen, and create an OAuth client with the **Web application** type. Add the exact callback URI `http://localhost:8081/email/gmail/callback` for Docker Compose and/or `http://localhost:8080/email/gmail/callback` for a locally run API to its authorized redirect URIs. Add the client ID and secret to `BACKEND/.env` as `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET`. If the consent screen is in testing mode, add the Gmail account as a test user. Keep `.env` private.
+
+Set `GOOSE_DBSTRING` in `BACKEND/.env` to connect local Go tools to PostgreSQL. Use the same password as `POSTGRES_PASSWORD` and `host=localhost` when the database runs in Docker.
+
+Admins connect the shared inbox from the dashboard using **Connect Gmail**. Google prompts for read-only access once; on callback, the app verifies the Gmail address, registers it as an active mailbox, saves the token, and returns to the dashboard. For Docker Compose, use port `8081` in `GMAIL_REDIRECT_URL`. For `go run ./cmd`, set it to `http://localhost:8080/email/gmail/callback` and register that exact URI in Google Cloud. The Gmail account must be an approved test user if the consent screen is in testing mode.
+
+To check an already connected mailbox, run this from the `BACKEND` directory:
+
+```powershell
+go run ./cmd/gmail-test
+```
+
+The dashboard fetches the latest 10 inbox messages for administrator accounts; use **Fetch latest emails** to refresh. The messages endpoint returns sender, subject, snippet, received date, and whether attachments exist; it does not download message bodies or attachments. Docker Compose passes OAuth settings from `BACKEND/.env` to the API and mounts the token directory so the callback can save the token. The token directory is ignored by Git.
 
 ## Start the application with Docker
 
@@ -60,9 +82,9 @@ docker compose ps
 docker compose logs -f api
 ```
 
-The Compose stack starts the API and PostgreSQL. The API listens on port `8080`; PostgreSQL is available on port `5432`. Database migrations are embedded in the API and run automatically before it begins serving requests. The current migrations create the `pdfs` and `users` tables.
+The Compose stack starts the API and PostgreSQL. The API listens on container port `8080` and is exposed on host port `8081`; PostgreSQL is available on port `5432`. Database migrations are embedded in the API and run automatically before it begins serving requests.
 
-Check the API health endpoint at <http://localhost:8080/health>. Stop the services without deleting database data with:
+Check the API health endpoint at <http://localhost:8081/health>. Stop the services without deleting database data with:
 
 ```bash
 docker compose down
@@ -90,13 +112,13 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:5173>. The frontend uses `http://localhost:8080` as its default API URL. To use another API URL, create `FRONTEND/New folder/recon-ui/.env.local` with:
+Open <http://localhost:5173>. The frontend defaults to `http://localhost:8080`, which is the local Go API port. When using Docker Compose, create `FRONTEND/New folder/recon-ui/.env.local` with:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=http://localhost:8081
 ```
 
-Restart Vite after changing frontend environment variables. The API allows local loopback origins and credentialed requests. Use `http://localhost:5173` during development. For HTTPS deployments, set `COOKIE_SECURE=true` so the authentication cookie is only sent over HTTPS.
+Restart Vite after changing frontend environment variables. The API allows local loopback origins and credentialed requests. Use `http://localhost:5173` during development. For a hosted frontend, set `CORS_ALLOWED_ORIGINS` in `BACKEND/.env` to its exact origin, such as `https://recon.example.com` (without a trailing slash), then rebuild/restart the API. Separate multiple origins with commas. Do not use `*`; credentialed requests require a specific origin. For HTTPS deployments, set `COOKIE_SECURE=true` so the authentication cookie is only sent over HTTPS.
 
 ## Create a test login
 
@@ -117,7 +139,7 @@ go run ./cmd/create-user -name "$USER_NAME" -email "$USER_EMAIL"
 unset SEED_USER_PASSWORD GOOSE_DBSTRING JWT_SECRET POSTGRES_PASSWORD
 ```
 
-Use the email and password entered above to sign in at <http://localhost:5173/login>. The login flow calls `POST /auth/login`, which sets an HttpOnly authentication cookie, then fetches the current user's profile from `GET /auth/me`. The verified user is shared with components through the React auth context; the JWT is not stored in browser local or session storage. Unchecking “Keep me signed in” creates a session cookie/token; checking it makes the cookie/token valid for 30 days.
+Use the email and password entered above to sign in at <http://localhost:5173/login>. The login flow calls `POST /auth/login`, which returns the signed JWT and user as JSON and sets an HttpOnly authentication cookie, then fetches the current user's profile from `GET /auth/me`. The verified user is shared with components through the React auth context; the JWT is not stored in browser local or session storage. Unchecking “Keep me signed in” creates a session cookie/token; checking it makes the cookie/token valid for 30 days.
 
 ## Core API routes
 
@@ -127,13 +149,16 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `POST` | `/auth/login` | Public | Authenticate with email and password |
 | `GET` | `/auth/me` | HttpOnly auth cookie | Return the authenticated user's profile |
 | `POST` | `/auth/logout` | Public; clears auth cookie | Sign out |
+| `GET` | `/email/gmail/connect` | Administrator | Start shared Gmail OAuth connection |
+| `GET` | `/email/gmail/callback` | Administrator | Complete OAuth, register the mailbox, and save its token |
+| `GET` | `/email/messages` | Administrator | Fetch recent messages from the registered Gmail inbox |
 | `GET` | `/pdf` | Public | List PDF records |
 | `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |
 | `POST` | `/webhooks/telegram` | Public | Telegram intake webhook for invoice documents |
 | `GET` | `/telegram/feed` | Public | Feed of incoming documents received via Telegram |
 
-Authentication uses an HttpOnly, SameSite=Lax cookie. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
+Authentication uses an HttpOnly, SameSite=Lax cookie. The login JSON response includes the JWT as `token` alongside the `user` object. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
 
 ## Local development and checks
 
@@ -158,9 +183,6 @@ To run the Go API directly instead of the API container, keep PostgreSQL running
 
 - **Compose says `JWT_SECRET` is missing:** create `BACKEND/.env` from `BACKEND/.env.example` and set `JWT_SECRET`.
 - **Login returns `401`:** check that the user exists, the email is correct, and the password matches the one used when creating the account.
-- **Login reports a network or CORS error:** verify the API is running on port `8080`, open the frontend at `http://localhost:5173`, and restart/rebuild the API after backend CORS changes.
+- **Login reports a network or CORS error:** verify the API is running on port `8080` for `go run ./cmd` or `8081` for Docker Compose, confirm the frontend origin is localhost or listed in `CORS_ALLOWED_ORIGINS`, and restart/rebuild the API after changing backend settings.
 - **A database table is missing:** check `docker compose logs api` for migration errors. Migrations run at API startup and do not require deleting the database volume.
 
-## Keeping documentation current
-
-When setup commands, environment variables, ports, routes, migrations, or development workflows change, update this README and the relevant component README in the same change. Keep secrets out of documentation; use placeholders and explain how to generate local values.

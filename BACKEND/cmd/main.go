@@ -21,12 +21,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	corsAllowedOrigins, err := parseCORSAllowedOrigins(env.GetString("CORS_ALLOWED_ORIGINS", ""))
+	if err != nil {
+		logger.Error("CORS is not configured correctly", "error", err)
+		os.Exit(1)
+	}
+
 	cfg := config{
 		addr: ":8080",
 		db: dbConfig{
 			dsn: env.GetString("GOOSE_DBSTRING", "host=localhost user=invoice_app password=password123 dbname=invoice_reconciliation sslmode=disable"),
 		},
 	}
+	cfg.corsAllowedOrigins = corsAllowedOrigins
 	pool, err := pgxpool.New(ctx, cfg.db.dsn)
 	if err != nil {
 		logger.Error("failed to create database connection pool", "error", err)

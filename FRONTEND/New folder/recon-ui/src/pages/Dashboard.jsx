@@ -15,8 +15,9 @@ import SourceCell, { TelegramLogo } from '../components/SourceCell';
 import DataTable from '../components/DataTable';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
-import { whatsappFeed, gmailFeed } from '../data/mock';
-import { displayDocumentStatus, fetchDocuments, fetchTelegramFeed } from '../api/documents';
+import { API_BASE_URL, displayDocumentStatus, fetchDocuments, fetchTelegramFeed } from '../api/documents';
+import { fetchGmailMessages } from '../api/email';
+import { useAuth } from '../auth/AuthContext';
 
 const types = ['Auto-detect', 'Supplier invoice', 'Purchase order', 'Bank transfer'];
 
@@ -55,6 +56,10 @@ export default function Dashboard() {
   const [loadingDocuments, setLoadingDocuments] = useState(true);
   const [error, setError] = useState('');
   const [tgFeed, setTgFeed] = useState([]);
+  const { user } = useAuth();
+  const [gmailInbox, setGmailInbox] = useState(null);
+  const [loadingGmail, setLoadingGmail] = useState(false);
+  const [gmailError, setGmailError] = useState('');
   const fileInput = useRef(null);
   const uploadQueue = usePdfUploadQueue();
 
@@ -75,6 +80,18 @@ export default function Dashboard() {
     setTgFeed(data);
   }, []);
 
+  const loadGmailInbox = useCallback(async () => {
+    setLoadingGmail(true);
+    setGmailError('');
+    try {
+      setGmailInbox(await fetchGmailMessages(10));
+    } catch (err) {
+      setGmailError(err.message || 'Could not fetch Gmail messages.');
+    } finally {
+      setLoadingGmail(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadDocuments();
     loadTgFeed();
@@ -84,6 +101,12 @@ export default function Dashboard() {
     }, 4000);
     return () => clearInterval(timer);
   }, [loadDocuments, loadTgFeed]);
+
+  useEffect(() => {
+    if (user?.role === 'administrator') {
+      loadGmailInbox();
+    }
+  }, [loadGmailInbox, user?.role]);
 
   const handleUploadQueue = async () => {
     await uploadQueue.processQueue();
@@ -158,7 +181,7 @@ export default function Dashboard() {
         <StatCard label="Failed extraction" value="3" sub="Check source files" color="error.main" />
       </Box>
 
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: 'repeat(3,1fr)' }, mb: 3 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: user?.role === 'administrator' ? 'repeat(3,1fr)' : 'repeat(2,1fr)' }, mb: 3 }}>
         <Card><CardContent>
           <PanelHeader icon={<CloudUploadIcon />} color="#2563eb" bg="#eff6ff" title="Manual Upload" sub="Admin upload to the pipeline" />
           <Box
@@ -232,15 +255,45 @@ export default function Dashboard() {
           </Stack>
         </CardContent></Card>
 
-        <Card><CardContent>
-          <PanelHeader icon={<EmailIcon />} color="#e53935" bg="#ffebee" title="Gmail Extraction" sub="Attachments from the inbox" tag={<Chip size="small" label="Synced" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }} />} />
+        {user?.role === 'administrator' && <Card><CardContent>
+          <PanelHeader icon={<EmailIcon />} color="#e53935" bg="#ffebee" title="Gmail Inbox" sub="Latest messages from the connected mailbox" tag={<Chip size="small" label={loadingGmail ? 'Fetching' : gmailInbox ? 'Connected' : 'Not connected'} sx={{ bgcolor: gmailInbox ? '#e8f5e9' : '#f5f5f5', color: gmailInbox ? '#2e7d32' : '#666', fontWeight: 500 }} />} />
           <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Mailbox</Typography><Typography variant="caption" fontWeight={500}>finance@company.lk</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Last sync</Typography><Typography variant="caption" fontWeight={500}>1 min ago · 24 today</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Mailbox</Typography><Typography variant="caption" fontWeight={500}>{gmailInbox?.email || '—'}</Typography></Stack>
           </Box>
-          <Feed items={gmailFeed} color="#1976d2" bg="#ffebee" />
-          <Button fullWidth variant="outlined" sx={{ mt: 1.5 }}>Sync now</Button>
-        </CardContent></Card>
+          {gmailError && <Alert severity="error" sx={{ mb: 1 }}>{gmailError}</Alert>}
+          {loadingGmail && <Typography variant="body2" color="text.secondary">Fetching messages…</Typography>}
+          {!loadingGmail && gmailInbox?.messages?.length > 0 && (
+            <List disablePadding>
+              {gmailInbox.messages.map((message, index) => (
+                <Box key={message.id}>
+                  {index > 0 && <Divider component="li" />}
+                  <ListItem disableGutters alignItems="flex-start">
+                    <ListItemAvatar><Avatar sx={{ bgcolor: '#ffebee', color: '#e53935', width: 36, height: 36 }}><EmailIcon fontSize="small" /></Avatar></ListItemAvatar>
+                    <ListItemText
+                      primary={message.subject || '(No subject)'}
+                      secondary={`${message.from || 'Unknown sender'} · ${new Date(message.received_at).toLocaleString()}${message.has_attachments ? ' · Attachment' : ''}${message.snippet ? `\n${message.snippet}` : ''}`}
+                      primaryTypographyProps={{ fontWeight: 500, fontSize: 14, noWrap: true }}
+                      secondaryTypographyProps={{ fontSize: 12, sx: { whiteSpace: 'pre-line', overflowWrap: 'anywhere' } }}
+                    />
+                  </ListItem>
+                </Box>
+              ))}
+            </List>
+          )}
+          {!loadingGmail && !gmailError && gmailInbox && gmailInbox.messages.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>No messages found in the inbox.</Typography>
+          )}
+          <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+            {!gmailInbox && (
+              <Button fullWidth variant="contained" onClick={() => window.location.assign(`${API_BASE_URL}/email/gmail/connect`)}>
+                Connect Gmail
+              </Button>
+            )}
+            <Button fullWidth variant="outlined" onClick={gmailInbox ? loadGmailInbox : undefined} disabled={loadingGmail || !gmailInbox}>
+              Fetch latest emails
+            </Button>
+          </Stack>
+        </CardContent></Card>}
       </Box>
 
       <Card>
