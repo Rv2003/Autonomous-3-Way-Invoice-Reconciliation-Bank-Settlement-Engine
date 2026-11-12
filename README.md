@@ -44,6 +44,7 @@ Paste one value into `JWT_SECRET` and the other into `POSTGRES_PASSWORD` in `BAC
 | `JWT_SECRET` | Yes | Signs API login tokens; use a random value at least 32 characters long. |
 | `POSTGRES_PASSWORD` | Recommended | Sets the local database password used by PostgreSQL and the API connection. |
 | `COOKIE_SECURE` | Production | Set to `true` when the API is served over HTTPS; leave `false` for local HTTP development. |
+| `CORS_ALLOWED_ORIGINS` | For hosted frontends | Comma-separated exact frontend origins (scheme and host, with optional port; no path). Localhost origins are allowed by default. |
 | `GOOSE_DBSTRING` | For local Go runs/tools | Local PostgreSQL connection string; set it in `BACKEND/.env` using the same password as `POSTGRES_PASSWORD`. Docker Compose supplies the API's value automatically. |
 | `SEED_USER_PASSWORD` | Only when creating a test user | Password input consumed by the one-off user-creation command. |
 | `GMAIL_CLIENT_ID` | For Gmail authorization/testing | OAuth client ID from your Google Cloud Web application credentials. |
@@ -116,7 +117,7 @@ Open <http://localhost:5173>. The frontend defaults to `http://localhost:8080`, 
 VITE_API_BASE_URL=http://localhost:8081
 ```
 
-Restart Vite after changing frontend environment variables. The API allows local loopback origins and credentialed requests. Use `http://localhost:5173` during development. For HTTPS deployments, set `COOKIE_SECURE=true` so the authentication cookie is only sent over HTTPS.
+Restart Vite after changing frontend environment variables. The API allows local loopback origins and credentialed requests. Use `http://localhost:5173` during development. For a hosted frontend, set `CORS_ALLOWED_ORIGINS` in `BACKEND/.env` to its exact origin, such as `https://recon.example.com` (without a trailing slash), then rebuild/restart the API. Separate multiple origins with commas. Do not use `*`; credentialed requests require a specific origin. For HTTPS deployments, set `COOKIE_SECURE=true` so the authentication cookie is only sent over HTTPS.
 
 ## Create a test login
 
@@ -179,6 +180,6 @@ To run the Go API directly instead of the API container, keep PostgreSQL running
 
 - **Compose says `JWT_SECRET` is missing:** create `BACKEND/.env` from `BACKEND/.env.example` and set `JWT_SECRET`.
 - **Login returns `401`:** check that the user exists, the email is correct, and the password matches the one used when creating the account.
-- **Login reports a network or CORS error:** verify the API is running on port `8080` for `go run ./cmd` or `8081` for Docker Compose, open the frontend at `http://localhost:5173`, and restart/rebuild the API after backend CORS changes.
+- **Login reports a network or CORS error:** verify the API is running on port `8080` for `go run ./cmd` or `8081` for Docker Compose, confirm the frontend origin is localhost or listed in `CORS_ALLOWED_ORIGINS`, and restart/rebuild the API after changing backend settings.
 - **A database table is missing:** check `docker compose logs api` for migration errors. Migrations run at API startup and do not require deleting the database volume.
 

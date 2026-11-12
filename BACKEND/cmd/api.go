@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -23,8 +24,9 @@ type application struct {
 }
 
 type config struct {
-	addr string
-	db   dbConfig
+	addr               string
+	db                 dbConfig
+	corsAllowedOrigins map[string]struct{}
 }
 
 type dbConfig struct {
@@ -38,7 +40,7 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.ClientIPFromRemoteAddr)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(localFrontendCORS)
+	r.Use(localFrontendCORS(app.config.corsAllowedOrigins))
 
 	r.Use(middleware.Timeout(60 * time.Second))
 
@@ -99,32 +101,59 @@ func (app *application) mount() http.Handler {
 	return r
 }
 
-func localFrontendCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		if origin != "" {
-			parsed, err := url.Parse(origin)
-			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
-				parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" ||
-				!isLoopbackHost(parsed.Hostname()) {
-				http.Error(w, "origin is not allowed", http.StatusForbidden)
+func localFrontendCORS(allowedOrigins map[string]struct{}) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			if origin != "" {
+				parsed, err := url.Parse(origin)
+				if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+					parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
+					parsed.RawQuery != "" || parsed.Fragment != "" ||
+					(!isLoopbackHost(parsed.Hostname()) && !isConfiguredOrigin(origin, allowedOrigins)) {
+					http.Error(w, "origin is not allowed", http.StatusForbidden)
+					return
+				}
+
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Add("Vary", "Origin")
+			}
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Add("Vary", "Origin")
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func isConfiguredOrigin(origin string, allowedOrigins map[string]struct{}) bool {
+	_, ok := allowedOrigins[origin]
+	return ok
+}
+
+func parseCORSAllowedOrigins(value string) (map[string]struct{}, error) {
+	origins := make(map[string]struct{})
+	for _, origin := range strings.Split(value, ",") {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			continue
 		}
 
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
+		parsed, err := url.Parse(origin)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
+			parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("invalid CORS origin %q: expected an http(s) origin without a path", origin)
 		}
-
-		next.ServeHTTP(w, r)
-	})
+		origins[origin] = struct{}{}
+	}
+	return origins, nil
 }
 
 func isLoopbackHost(host string) bool {
