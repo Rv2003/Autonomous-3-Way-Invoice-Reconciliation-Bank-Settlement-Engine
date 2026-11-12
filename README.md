@@ -47,6 +47,7 @@ Paste one value into `JWT_SECRET` and the other into `POSTGRES_PASSWORD` in `BAC
 | `CORS_ALLOWED_ORIGINS` | For hosted frontends | Comma-separated exact frontend origins (scheme and host, with optional port; no path). Localhost origins are allowed by default. |
 | `GOOSE_DBSTRING` | For local Go runs/tools | Local PostgreSQL connection string; set it in `BACKEND/.env` using the same password as `POSTGRES_PASSWORD`. Docker Compose supplies the API's value automatically. |
 | `SEED_USER_PASSWORD` | Only when creating a test user | Password input consumed by the one-off user-creation command. |
+| `TELEGRAM_BOT_TOKEN` | Optional | Telegram Bot API token for incoming invoice intake webhook. |
 | `GMAIL_CLIENT_ID` | For Gmail authorization/testing | OAuth client ID from your Google Cloud Web application credentials. |
 | `GMAIL_CLIENT_SECRET` | For Gmail authorization/testing | OAuth client secret from your Google Cloud **Web application** credentials. Keep this value private. |
 | `GMAIL_TOKEN_FILE` | Optional | Path to the OAuth token JSON file; defaults to `tokens/gmail-token.json` when run from `BACKEND`. Docker Compose mounts this folder for the API. |
@@ -154,6 +155,8 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `GET` | `/pdf` | Public | List PDF records |
 | `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |
+| `POST` | `/webhooks/telegram` | Public | Telegram intake webhook for invoice documents |
+| `GET` | `/telegram/feed` | Public | Feed of incoming documents received via Telegram |
 
 Authentication uses an HttpOnly, SameSite=Lax cookie. The login JSON response includes the JWT as `token` alongside the `user` object. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
 
