@@ -77,7 +77,7 @@ export default function AuthLayout({ children, isRegister = false }) {
     : 'Every invoice matched to its order and its payment.';
   const description = isRegister
     ? 'Create your workspace to automate invoice matching, review discrepancies and track bank settlements.'
-    : 'Documents arrive by upload, WhatsApp or Gmail. Anything that does not match goes to the review queue.';
+    : 'Documents arrive by upload, Telegram or Gmail. Anything that does not match goes to the review queue.';
 
   return (
     <Box

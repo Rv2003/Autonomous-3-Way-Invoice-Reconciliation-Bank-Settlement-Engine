@@ -19,6 +19,11 @@ type Service interface {
 		emailAddress string,
 	) (repo.EmailMailbox, error)
 
+	GetActiveMailbox(
+		ctx context.Context,
+		provider string,
+	) (repo.EmailMailbox, error)
+
 	UpdateMailboxWatch(
 		ctx context.Context,
 		id pgtype.UUID,
@@ -86,6 +91,13 @@ func (s *svc) GetMailboxByEmail(
 			EmailAddress: emailAddress,
 		},
 	)
+}
+
+func (s *svc) GetActiveMailbox(
+	ctx context.Context,
+	provider string,
+) (repo.EmailMailbox, error) {
+	return s.repo.GetActiveEmailMailbox(ctx, provider)
 }
 
 func (s *svc) UpdateMailboxWatch(

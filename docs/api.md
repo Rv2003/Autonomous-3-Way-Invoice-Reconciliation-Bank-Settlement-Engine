@@ -14,7 +14,7 @@ All protected requests use `Authorization: Bearer <token>`. Login tokens are val
 
 Create a user with `full_name`, `email`, `password`, `confirm_password`, and `role` (`administrator` or `clerk`). `employee_number` and `phone_number` are optional. The initial password is stored as a bcrypt hash. An administrator cannot demote their own account, and the final administrator cannot be demoted.
 
-## Documents
+## Documents and Inbound Intake
 
 | Method | Path | Access | Description |
 |---|---|---|---|
@@ -22,3 +22,11 @@ Create a user with `full_name`, `email`, `password`, `confirm_password`, and `ro
 | GET | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
 | POST | `/pdf/submit` | Public | Upload a PDF |
 | DELETE | `/pdf/{id}` | Authenticated | Delete a document and its stored PDF file |
+| POST | `/webhooks/gmail` | Public | Google Cloud Pub/Sub push notification webhook for Gmail |
+| POST | `/email/sync` | Public | On-demand scan of Gmail inbox for new invoice attachments |
+| GET | `/email/feed` | Public | List recent email-extracted inbound documents |
+| GET | `/email/mailbox` | Public | Return active Gmail mailbox configuration |
+| GET | `/inbound/{id}/file` | Public | View or download an inbound document file inline |
+| DELETE | `/inbound/{id}` | Public | Delete an inbound document record and its stored file |
+| POST | `/webhooks/telegram` | Public | Telegram document intake webhook |
+| GET | `/telegram/feed` | Public | List recent Telegram-extracted inbound documents |

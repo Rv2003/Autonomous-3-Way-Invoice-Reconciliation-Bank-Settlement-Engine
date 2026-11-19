@@ -15,8 +15,7 @@ import SourceCell, { TelegramLogo } from '../components/SourceCell';
 import DataTable from '../components/DataTable';
 import PdfUploadQueue from '../components/PdfUploadQueue';
 import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
-import { whatsappFeed, gmailFeed } from '../data/mock';
-import { displayDocumentStatus, fetchDocuments, fetchTelegramFeed } from '../api/documents';
+import { displayDocumentStatus, fetchDocuments, fetchTelegramFeed, fetchEmailFeed, fetchEmailMailbox, syncEmailInbox } from '../api/documents';
 
 const types = ['Auto-detect', 'Supplier invoice', 'Purchase order', 'Bank transfer'];
 
@@ -55,8 +54,22 @@ export default function Dashboard() {
   const [loadingDocuments, setLoadingDocuments] = useState(true);
   const [error, setError] = useState('');
   const [tgFeed, setTgFeed] = useState([]);
+  const [emailFeed, setEmailFeed] = useState([]);
+  const [mailbox, setMailbox] = useState({ email_address: 'awirbse.devtest@gmail.com', status: 'active' });
+  const [syncingEmail, setSyncingEmail] = useState(false);
   const fileInput = useRef(null);
   const uploadQueue = usePdfUploadQueue();
+
+  const handleSyncEmail = async () => {
+    setSyncingEmail(true);
+    try {
+      await syncEmailInbox();
+      await loadEmailFeed();
+      await loadDocuments();
+    } finally {
+      setSyncingEmail(false);
+    }
+  };
 
   const loadDocuments = useCallback(async () => {
     setLoadingDocuments(true);
@@ -75,16 +88,30 @@ export default function Dashboard() {
     setTgFeed(data);
   }, []);
 
+  const loadEmailFeed = useCallback(async () => {
+    const data = await fetchEmailFeed();
+    setEmailFeed(data);
+  }, []);
+
+  const loadMailbox = useCallback(async () => {
+    const data = await fetchEmailMailbox();
+    if (data && data.email_address) setMailbox(data);
+  }, []);
+
   useEffect(() => {
     loadDocuments();
     loadTgFeed();
-    // Live polling every 4 seconds to catch real-time Telegram arrivals
+    loadEmailFeed();
+    loadMailbox();
+    // Live polling every 4 seconds to catch real-time Telegram and Gmail arrivals
     const timer = setInterval(() => {
       loadDocuments();
       loadTgFeed();
+      loadEmailFeed();
+      loadMailbox();
     }, 4000);
     return () => clearInterval(timer);
-  }, [loadDocuments, loadTgFeed]);
+  }, [loadDocuments, loadTgFeed, loadEmailFeed, loadMailbox]);
 
   const handleUploadQueue = async () => {
     await uploadQueue.processQueue();
@@ -113,22 +140,57 @@ export default function Dashboard() {
     return [];
   }, [tgFeed]);
 
+  const displayEmailItems = useMemo(() => {
+    if (emailFeed && emailFeed.length > 0) {
+      return emailFeed.map((item) => {
+        const date = item.received_at ? new Date(item.received_at) : null;
+        const timeStr = date && !isNaN(date.getTime())
+          ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Just now';
+        return {
+          name: item.original_filename || `Email_Invoice_${item.id}.pdf`,
+          meta: `${item.sender || 'Email Supplier'} · ${timeStr}`,
+          status: displayDocumentStatus(item.status),
+        };
+      });
+    }
+    return [];
+  }, [emailFeed]);
+
   const recentDocuments = documents.map((document) => {
     const isTelegram =
       document.source === 'Telegram' ||
       document.source === 'Documents via Telegram' ||
       document.source === 'telegram' ||
       (document.original_name && document.original_name.toLowerCase().includes('telegram'));
+
+    const isEmail =
+      document.source === 'Gmail' ||
+      document.source === 'email' ||
+      (document.original_name && document.original_name.toLowerCase().includes('email'));
+
     const cleanName = isTelegram
       ? document.original_name.replace(/^\[telegram\]\s*/i, '')
       : document.original_name;
 
+    const sourceLabel = isTelegram
+      ? 'Documents via Telegram'
+      : isEmail
+      ? 'Gmail'
+      : (document.source || 'Manual upload');
+
+    const companyLabel = isTelegram
+      ? (document.sender || 'Telegram User')
+      : isEmail
+      ? (document.sender || 'Email Supplier')
+      : '—';
+
     return {
       id: document.id,
       name: cleanName,
-      source: isTelegram ? 'Documents via Telegram' : (document.source || 'Manual upload'),
+      source: sourceLabel,
       type: 'PDF document',
-      company: isTelegram ? (document.sender || 'Telegram User') : '—',
+      company: companyLabel,
       status: displayDocumentStatus(document.status),
     };
   });
@@ -149,7 +211,7 @@ export default function Dashboard() {
       <PageHeader
         title="Document Ingestion"
         subtitle="Upload files manually or let Telegram and Gmail feed documents into the reconciliation pipeline."
-        actions={<Button variant="outlined" onClick={() => { loadDocuments(); loadTgFeed(); }} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
+        actions={<Button variant="outlined" onClick={() => { loadDocuments(); loadTgFeed(); loadEmailFeed(); }} disabled={loadingDocuments || uploadQueue.processing}>Refresh</Button>}
       />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)', lg: 'repeat(4,1fr)' }, mb: 3 }}>
@@ -236,13 +298,38 @@ export default function Dashboard() {
 
         {/* Gmail Extraction Card */}
         <Card><CardContent>
-          <PanelHeader icon={<EmailIcon />} color="#e53935" bg="#ffebee" title="Gmail Extraction" sub="Attachments from the inbox" tag={<Chip size="small" label="Synced" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 500 }} />} />
+          <PanelHeader
+            icon={<EmailIcon />}
+            color="#e53935"
+            bg="#ffebee"
+            title="Gmail Extraction"
+            sub="Attachments from the inbox"
+            tag={<Chip size="small" label="● Live" sx={{ bgcolor: '#ffebee', color: '#e53935', fontWeight: 600 }} />}
+          />
           <Box sx={{ bgcolor: '#f5f7fa', borderRadius: 2, p: 1.5, mb: 1 }}>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Mailbox</Typography><Typography variant="caption" fontWeight={500}>finance@company.lk</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">Last sync</Typography><Typography variant="caption" fontWeight={500}>1 min ago · 24 today</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between">
+              <Typography variant="caption" color="text.secondary">Mailbox</Typography>
+              <Typography variant="caption" fontWeight={600} color="#e53935">{mailbox?.email_address || 'awirbse.devtest@gmail.com'}</Typography>
+            </Stack>
+            <Stack direction="row" justifyContent="space-between">
+              <Typography variant="caption" color="text.secondary">Webhook Status</Typography>
+              <Typography variant="caption" fontWeight={500}>{emailFeed.length > 0 ? `Active · ${emailFeed.length} received` : 'Active · Listening'}</Typography>
+            </Stack>
           </Box>
-          <Feed items={gmailFeed} color="#1976d2" bg="#ffebee" />
-          <Button fullWidth variant="outlined" sx={{ mt: 1.5 }}>Sync now</Button>
+          {displayEmailItems.length > 0 ? (
+            <Feed items={displayEmailItems} color="#e53935" bg="#ffebee" />
+          ) : (
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">No incoming emails yet</Typography>
+              <Typography variant="caption" color="text.secondary">Invoices sent to {mailbox?.email_address || 'awirbse.devtest@gmail.com'} will appear here</Typography>
+            </Box>
+          )}
+          <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+            <Button fullWidth variant="contained" size="small" onClick={handleSyncEmail} disabled={syncingEmail}>
+              {syncingEmail ? 'Checking…' : 'Sync Inbox'}
+            </Button>
+            <Button variant="outlined" size="small" onClick={loadEmailFeed}>Refresh</Button>
+          </Stack>
         </CardContent></Card>
       </Box>
 

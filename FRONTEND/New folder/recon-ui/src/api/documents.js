@@ -8,9 +8,10 @@ async function ensureOk(response, action) {
 }
 
 export async function fetchDocuments() {
-  const [pdfRes, tgRes] = await Promise.allSettled([
+  const [pdfRes, tgRes, emailRes] = await Promise.allSettled([
     fetch(`${API_BASE_URL}/pdf`),
     fetch(`${API_BASE_URL}/telegram/feed`),
+    fetch(`${API_BASE_URL}/email/feed`),
   ]);
 
   let pdfDocs = [];
@@ -44,10 +45,37 @@ export async function fetchDocuments() {
     }
   }
 
+  let emailDocs = [];
+  if (emailRes.status === 'fulfilled' && emailRes.value.ok) {
+    try {
+      const data = await emailRes.value.json();
+      if (Array.isArray(data)) {
+        emailDocs = data.map((item) => ({
+          id: `email-${item.id}`,
+          original_name: item.original_filename || `Email_Document_${item.id}.pdf`,
+          size_bytes: item.size_bytes || 0,
+          status: item.status?.toLowerCase() === 'received' ? 'uploaded' : (item.status?.toLowerCase() || 'uploaded'),
+          uploaded_at: item.received_at,
+          source: 'Gmail',
+          sender: item.sender,
+          sha256: item.sha256,
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const seen = new Set();
   const result = [];
 
   for (const doc of tgDocs) {
+    if (doc.sha256) seen.add(doc.sha256);
+    seen.add(doc.original_name);
+    result.push(doc);
+  }
+
+  for (const doc of emailDocs) {
     if (doc.sha256) seen.add(doc.sha256);
     seen.add(doc.original_name);
     result.push(doc);
@@ -77,6 +105,12 @@ export async function fetchDocuments() {
 }
 
 export function getDocumentUrl(id) {
+  if (typeof id === 'string') {
+    if (id.startsWith('email-') || id.startsWith('tg-')) {
+      const rawId = id.replace(/^(email|tg)-/, '');
+      return `${API_BASE_URL}/inbound/${encodeURIComponent(rawId)}/file`;
+    }
+  }
   return `${API_BASE_URL}/pdf/${encodeURIComponent(id)}/file`;
 }
 
@@ -92,7 +126,12 @@ export async function uploadPdf(file) {
 }
 
 export async function deleteDocument(id) {
-  const response = await fetch(`${API_BASE_URL}/pdf/${encodeURIComponent(id)}`, {
+  let url = `${API_BASE_URL}/pdf/${encodeURIComponent(id)}`;
+  if (typeof id === 'string' && (id.startsWith('email-') || id.startsWith('tg-'))) {
+    const rawId = id.replace(/^(email|tg)-/, '');
+    url = `${API_BASE_URL}/inbound/${encodeURIComponent(rawId)}`;
+  }
+  const response = await fetch(url, {
     method: 'DELETE',
     credentials: 'include',
   });
@@ -107,6 +146,37 @@ export async function fetchTelegramFeed() {
     return Array.isArray(items) ? items : [];
   } catch {
     return [];
+  }
+}
+
+export async function fetchEmailFeed() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/email/feed`);
+    if (!response.ok) return [];
+    const items = await response.json();
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchEmailMailbox() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/email/mailbox`);
+    if (!response.ok) return { email_address: 'awirbse.devtest@gmail.com', status: 'active' };
+    return await response.json();
+  } catch {
+    return { email_address: 'awirbse.devtest@gmail.com', status: 'active' };
+  }
+}
+
+export async function syncEmailInbox() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/email/sync`, { method: 'POST' });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
   }
 }
 

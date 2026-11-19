@@ -119,3 +119,73 @@ SET
 WHERE id = $1
   AND status = 'processing'
 RETURNING *;
+
+-- name: CreateInboundDocument :one
+INSERT INTO inbound_documents (
+    source,
+    external_message_id,
+    sender,
+    media_id,
+    mime_type,
+    original_filename,
+    storage_path,
+    sha256,
+    size_bytes,
+    status
+)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10
+)
+RETURNING *;
+
+-- name: ListInboundDocumentsBySource :many
+SELECT *
+FROM inbound_documents
+WHERE source = $1 AND status != 'DELETED'
+ORDER BY received_at DESC
+LIMIT $2;
+
+-- name: GetInboundDocument :one
+SELECT *
+FROM inbound_documents
+WHERE id = $1;
+
+-- name: GetInboundDocumentByExternalID :one
+SELECT *
+FROM inbound_documents
+WHERE source = $1 AND external_message_id = $2
+LIMIT 1;
+
+-- name: GetActiveEmailMailbox :one
+SELECT *
+FROM email_mailboxes
+WHERE provider = $1 AND status = 'active'
+ORDER BY updated_at DESC
+LIMIT 1;
+
+-- name: ListRecentInboundDocuments :many
+SELECT *
+FROM inbound_documents
+WHERE status != 'DELETED'
+ORDER BY received_at DESC
+LIMIT $1;
+
+-- name: DeleteInboundDocument :one
+UPDATE inbound_documents
+SET status = 'DELETED'
+WHERE id = $1
+RETURNING storage_path, sha256;
+
+-- name: DeletePdfBySha256 :many
+DELETE FROM pdfs
+WHERE sha256 = $1
+RETURNING stored_path;

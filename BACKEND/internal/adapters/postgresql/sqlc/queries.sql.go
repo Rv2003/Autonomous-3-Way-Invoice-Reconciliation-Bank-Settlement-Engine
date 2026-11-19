@@ -81,6 +81,78 @@ func (q *Queries) CreateEmailMailbox(ctx context.Context, arg CreateEmailMailbox
 	return i, err
 }
 
+const createInboundDocument = `-- name: CreateInboundDocument :one
+INSERT INTO inbound_documents (
+    source,
+    external_message_id,
+    sender,
+    media_id,
+    mime_type,
+    original_filename,
+    storage_path,
+    sha256,
+    size_bytes,
+    status
+)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10
+)
+RETURNING id, source, external_message_id, sender, media_id, mime_type, original_filename, storage_path, sha256, size_bytes, status, received_at
+`
+
+type CreateInboundDocumentParams struct {
+	Source            string `json:"source"`
+	ExternalMessageID string `json:"external_message_id"`
+	Sender            string `json:"sender"`
+	MediaID           string `json:"media_id"`
+	MimeType          string `json:"mime_type"`
+	OriginalFilename  string `json:"original_filename"`
+	StoragePath       string `json:"storage_path"`
+	Sha256            string `json:"sha256"`
+	SizeBytes         int64  `json:"size_bytes"`
+	Status            string `json:"status"`
+}
+
+func (q *Queries) CreateInboundDocument(ctx context.Context, arg CreateInboundDocumentParams) (InboundDocument, error) {
+	row := q.db.QueryRow(ctx, createInboundDocument,
+		arg.Source,
+		arg.ExternalMessageID,
+		arg.Sender,
+		arg.MediaID,
+		arg.MimeType,
+		arg.OriginalFilename,
+		arg.StoragePath,
+		arg.Sha256,
+		arg.SizeBytes,
+		arg.Status,
+	)
+	var i InboundDocument
+	err := row.Scan(
+		&i.ID,
+		&i.Source,
+		&i.ExternalMessageID,
+		&i.Sender,
+		&i.MediaID,
+		&i.MimeType,
+		&i.OriginalFilename,
+		&i.StoragePath,
+		&i.Sha256,
+		&i.SizeBytes,
+		&i.Status,
+		&i.ReceivedAt,
+	)
+	return i, err
+}
+
 const createPdf = `-- name: CreatePdf :one
 INSERT INTO pdfs (
     original_name,
@@ -129,6 +201,25 @@ func (q *Queries) CreatePdf(ctx context.Context, arg CreatePdfParams) (Pdf, erro
 	return i, err
 }
 
+const deleteInboundDocument = `-- name: DeleteInboundDocument :one
+UPDATE inbound_documents
+SET status = 'DELETED'
+WHERE id = $1
+RETURNING storage_path, sha256
+`
+
+type DeleteInboundDocumentRow struct {
+	StoragePath string `json:"storage_path"`
+	Sha256      string `json:"sha256"`
+}
+
+func (q *Queries) DeleteInboundDocument(ctx context.Context, id int64) (DeleteInboundDocumentRow, error) {
+	row := q.db.QueryRow(ctx, deleteInboundDocument, id)
+	var i DeleteInboundDocumentRow
+	err := row.Scan(&i.StoragePath, &i.Sha256)
+	return i, err
+}
+
 const deletePdf = `-- name: DeletePdf :one
 DELETE FROM pdfs
 WHERE id::text = $1
@@ -140,6 +231,56 @@ func (q *Queries) DeletePdf(ctx context.Context, id pgtype.UUID) (string, error)
 	var stored_path string
 	err := row.Scan(&stored_path)
 	return stored_path, err
+}
+
+const deletePdfBySha256 = `-- name: DeletePdfBySha256 :many
+DELETE FROM pdfs
+WHERE sha256 = $1
+RETURNING stored_path
+`
+
+func (q *Queries) DeletePdfBySha256(ctx context.Context, sha256 string) ([]string, error) {
+	rows, err := q.db.Query(ctx, deletePdfBySha256, sha256)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var stored_path string
+		if err := rows.Scan(&stored_path); err != nil {
+			return nil, err
+		}
+		items = append(items, stored_path)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getActiveEmailMailbox = `-- name: GetActiveEmailMailbox :one
+SELECT id, provider, email_address, history_id, watch_expires_at, status, created_at, updated_at
+FROM email_mailboxes
+WHERE provider = $1 AND status = 'active'
+ORDER BY updated_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetActiveEmailMailbox(ctx context.Context, provider string) (EmailMailbox, error) {
+	row := q.db.QueryRow(ctx, getActiveEmailMailbox, provider)
+	var i EmailMailbox
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.EmailAddress,
+		&i.HistoryID,
+		&i.WatchExpiresAt,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getEmailIngestionEvent = `-- name: GetEmailIngestionEvent :one
@@ -189,6 +330,64 @@ func (q *Queries) GetEmailMailboxByEmail(ctx context.Context, arg GetEmailMailbo
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getInboundDocument = `-- name: GetInboundDocument :one
+SELECT id, source, external_message_id, sender, media_id, mime_type, original_filename, storage_path, sha256, size_bytes, status, received_at
+FROM inbound_documents
+WHERE id = $1
+`
+
+func (q *Queries) GetInboundDocument(ctx context.Context, id int64) (InboundDocument, error) {
+	row := q.db.QueryRow(ctx, getInboundDocument, id)
+	var i InboundDocument
+	err := row.Scan(
+		&i.ID,
+		&i.Source,
+		&i.ExternalMessageID,
+		&i.Sender,
+		&i.MediaID,
+		&i.MimeType,
+		&i.OriginalFilename,
+		&i.StoragePath,
+		&i.Sha256,
+		&i.SizeBytes,
+		&i.Status,
+		&i.ReceivedAt,
+	)
+	return i, err
+}
+
+const getInboundDocumentByExternalID = `-- name: GetInboundDocumentByExternalID :one
+SELECT id, source, external_message_id, sender, media_id, mime_type, original_filename, storage_path, sha256, size_bytes, status, received_at
+FROM inbound_documents
+WHERE source = $1 AND external_message_id = $2
+LIMIT 1
+`
+
+type GetInboundDocumentByExternalIDParams struct {
+	Source            string `json:"source"`
+	ExternalMessageID string `json:"external_message_id"`
+}
+
+func (q *Queries) GetInboundDocumentByExternalID(ctx context.Context, arg GetInboundDocumentByExternalIDParams) (InboundDocument, error) {
+	row := q.db.QueryRow(ctx, getInboundDocumentByExternalID, arg.Source, arg.ExternalMessageID)
+	var i InboundDocument
+	err := row.Scan(
+		&i.ID,
+		&i.Source,
+		&i.ExternalMessageID,
+		&i.Sender,
+		&i.MediaID,
+		&i.MimeType,
+		&i.OriginalFilename,
+		&i.StoragePath,
+		&i.Sha256,
+		&i.SizeBytes,
+		&i.Status,
+		&i.ReceivedAt,
 	)
 	return i, err
 }
@@ -255,6 +454,52 @@ func (q *Queries) ListEmailIngestionEvents(ctx context.Context) ([]EmailIngestio
 	return items, nil
 }
 
+const listInboundDocumentsBySource = `-- name: ListInboundDocumentsBySource :many
+SELECT id, source, external_message_id, sender, media_id, mime_type, original_filename, storage_path, sha256, size_bytes, status, received_at
+FROM inbound_documents
+WHERE source = $1 AND status != 'DELETED'
+ORDER BY received_at DESC
+LIMIT $2
+`
+
+type ListInboundDocumentsBySourceParams struct {
+	Source string `json:"source"`
+	Limit  int32  `json:"limit"`
+}
+
+func (q *Queries) ListInboundDocumentsBySource(ctx context.Context, arg ListInboundDocumentsBySourceParams) ([]InboundDocument, error) {
+	rows, err := q.db.Query(ctx, listInboundDocumentsBySource, arg.Source, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InboundDocument
+	for rows.Next() {
+		var i InboundDocument
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.ExternalMessageID,
+			&i.Sender,
+			&i.MediaID,
+			&i.MimeType,
+			&i.OriginalFilename,
+			&i.StoragePath,
+			&i.Sha256,
+			&i.SizeBytes,
+			&i.Status,
+			&i.ReceivedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPdf = `-- name: ListPdf :many
 SELECT id, original_name, size_bytes, status, uploaded_at
 FROM pdfs
@@ -284,6 +529,47 @@ func (q *Queries) ListPdf(ctx context.Context) ([]ListPdfRow, error) {
 			&i.SizeBytes,
 			&i.Status,
 			&i.UploadedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecentInboundDocuments = `-- name: ListRecentInboundDocuments :many
+SELECT id, source, external_message_id, sender, media_id, mime_type, original_filename, storage_path, sha256, size_bytes, status, received_at
+FROM inbound_documents
+WHERE status != 'DELETED'
+ORDER BY received_at DESC
+LIMIT $1
+`
+
+func (q *Queries) ListRecentInboundDocuments(ctx context.Context, limit int32) ([]InboundDocument, error) {
+	rows, err := q.db.Query(ctx, listRecentInboundDocuments, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InboundDocument
+	for rows.Next() {
+		var i InboundDocument
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.ExternalMessageID,
+			&i.Sender,
+			&i.MediaID,
+			&i.MimeType,
+			&i.OriginalFilename,
+			&i.StoragePath,
+			&i.Sha256,
+			&i.SizeBytes,
+			&i.Status,
+			&i.ReceivedAt,
 		); err != nil {
 			return nil, err
 		}

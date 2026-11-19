@@ -128,7 +128,16 @@ Use the email and password entered above to sign in at <http://localhost:5173/lo
 | `POST` | `/auth/logout` | Public; clears auth cookie | Sign out |
 | `GET` | `/pdf` | Public | List PDF records |
 | `GET` | `/pdf/{id}/file` | Public | View an uploaded PDF inline |
+| `DELETE` | `/pdf/{id}` | Public | Delete an uploaded PDF |
 | `POST` | `/pdf/submit` | Public | Upload a PDF |
+| `POST` | `/webhooks/gmail` | Public | Google Cloud Pub/Sub push notification webhook |
+| `POST` | `/email/sync` | Public | On-demand scan of Gmail inbox for new invoice attachments |
+| `GET` | `/email/feed` | Public | List recent email-extracted inbound documents |
+| `GET` | `/email/mailbox` | Public | Return active Gmail mailbox address and status |
+| `GET` | `/inbound/{id}/file` | Public | View or download an inbound document file inline |
+| `DELETE` | `/inbound/{id}` | Public | Delete an inbound document and its stored file |
+| `POST` | `/webhooks/telegram` | Public | Telegram intake webhook |
+| `GET` | `/telegram/feed` | Public | List recent Telegram inbound documents |
 
 Authentication uses an HttpOnly, SameSite=Lax cookie. JWTs expire after 30 minutes by default or 30 days when “Keep me signed in” is selected. JavaScript cannot read the cookie; browser requests send it with credentials.
 

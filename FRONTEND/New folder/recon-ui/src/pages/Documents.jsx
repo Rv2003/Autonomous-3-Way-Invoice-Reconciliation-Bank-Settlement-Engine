@@ -3,6 +3,7 @@ import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconB
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import PageHeader from '../components/PageHeader';
 import DataTable from '../components/DataTable';
 import StatusChip from '../components/StatusChip';
@@ -12,7 +13,7 @@ import usePdfUploadQueue from '../hooks/usePdfUploadQueue';
 import { deleteDocument, displayDocumentStatus, fetchDocuments, getDocumentUrl } from '../api/documents';
 
 const statuses = ['All', 'Uploaded', 'Processed', 'Processing', 'Failed'];
-const sources = ['All', 'Documents via Telegram', 'WhatsApp', 'Gmail', 'Manual upload'];
+const sources = ['All', 'Documents via Telegram', 'Gmail', 'Manual upload'];
 
 function formatReceived(value) {
   if (!value) return '—';
@@ -161,19 +162,33 @@ export default function Documents() {
             label: '',
             align: 'right',
             render: (r) => (
-              <Tooltip title="View document">
-                <IconButton
-                  aria-label={`View ${r.name}`}
-                  component="a"
-                  href={getDocumentUrl(r.id)}
-                  target="_blank"
-                  rel="noreferrer"
-                  size="small"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <VisibilityOutlinedIcon />
-                </IconButton>
-              </Tooltip>
+              <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                <Tooltip title="View document">
+                  <IconButton
+                    aria-label={`View ${r.name}`}
+                    component="a"
+                    href={getDocumentUrl(r.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    size="small"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <VisibilityOutlinedIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Download document">
+                  <IconButton
+                    aria-label={`Download ${r.name}`}
+                    component="a"
+                    href={getDocumentUrl(r.id)}
+                    download={r.name || 'document.pdf'}
+                    size="small"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <FileDownloadOutlinedIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             ),
           },
           {
